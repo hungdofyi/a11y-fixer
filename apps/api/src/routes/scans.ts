@@ -188,7 +188,9 @@ async function runScanBackground(
     // Build screenshot path lookup by flattened issue index
     const screenshotMap = new Map<number, string>();
     for (const sr of screenshotResults) {
-      screenshotMap.set(sr.issueIndex, sr.relativePath);
+      if (sr.relativePath) {
+        screenshotMap.set(sr.issueIndex, sr.relativePath);
+      }
     }
 
     // Insert issues in batches
