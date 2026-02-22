@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { scans, issues } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
 import { generateScanReport, exportCsv, calculateSummary } from '@a11y-fixer/report-generator';
+import { safeParseJson } from '../utils/safe-parse-json.js';
 
 /** Routes for generating scan reports in HTML or CSV format */
 const reportsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -27,6 +28,7 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
       wcagCriteria: safeParseJson<string[]>(row.wcagCriteria, []),
       severity: row.severity as Violation['severity'],
       description: row.description,
+      helpUrl: row.helpUrl ?? undefined,
       nodes: [{
         element: row.element ?? '',
         html: row.html ?? '',
@@ -50,14 +52,5 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.header('Content-Type', 'text/html').send(html);
   });
 };
-
-function safeParseJson<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export default reportsRoutes;

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { eq, and, sql } from 'drizzle-orm';
 import { issues } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
+import { safeParseJson } from '../utils/safe-parse-json.js';
 
 /** Routes for querying issues with pagination and filtering */
 const issuesRoutes: FastifyPluginAsync = async (fastify) => {
@@ -77,11 +78,12 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /:id/ai-fix — on-demand AI fix generation for a stored issue
   fastify.post<{ Params: { id: string } }>('/:id/ai-fix', async (req, reply) => {
-    // Extend timeout for AI calls (default Fastify is too short for ~10s Claude API)
     req.raw.setTimeout(60_000);
-      const id = parseInt(req.params.id, 10);
-      if (isNaN(id)) return reply.code(400).send({ error: 'Invalid issue id' });
 
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: 'Invalid issue id' });
+
+    try {
       const [issue] = await fastify.db.select().from(issues).where(eq(issues.id, id));
       if (!issue) return reply.code(404).send({ error: 'Issue not found' });
 
@@ -100,6 +102,7 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
         description: issue.description,
         severity: issue.severity as Violation['severity'],
         wcagCriteria: safeParseJson<string[]>(issue.wcagCriteria, []),
+        helpUrl: issue.helpUrl ?? undefined,
         nodes: [{
           element: issue.element ?? '',
           html: issue.html ?? '',
@@ -109,31 +112,21 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
         pageUrl: issue.pageUrl ?? '',
       };
 
-      try {
-        const fix = await analyzeComplexIssue(violation, issue.html ?? '');
+      const fix = await analyzeComplexIssue(violation, issue.html ?? '');
 
-        await fastify.db
-          .update(issues)
-          .set({ fixSuggestion: JSON.stringify(fix) })
-          .where(eq(issues.id, id));
+      await fastify.db
+        .update(issues)
+        .set({ fixSuggestion: JSON.stringify(fix) })
+        .where(eq(issues.id, id));
 
-        reply.send({ fix });
-      } catch (err) {
-        reply.code(500).send({
-          error: 'AI analysis failed',
-          detail: (err as Error).message,
-        });
-      }
+      reply.send({ fix });
+    } catch (err) {
+      reply.code(500).send({
+        error: 'AI analysis failed',
+        detail: (err as Error).message,
+      });
+    }
   });
 };
-
-function safeParseJson<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export default issuesRoutes;

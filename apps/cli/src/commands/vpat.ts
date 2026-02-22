@@ -25,7 +25,7 @@ export default class Vpat extends BaseCommand {
       if (flags.ai) {
         this.warn(
           'AI narrative generation requires scan entries. ' +
-          'Pass --scan-id to load real violations, or omit --ai for now.',
+          'This feature is not yet wired — omit --ai for now.',
         );
       }
 
