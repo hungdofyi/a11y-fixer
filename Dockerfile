@@ -21,7 +21,7 @@ COPY apps/web/package.json apps/web/
 COPY apps/cli/package.json apps/cli/
 
 # Install all dependencies
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY packages/ packages/
@@ -55,7 +55,7 @@ COPY packages/report-generator/package.json packages/report-generator/
 COPY apps/api/package.json apps/api/
 
 # Install production deps only
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod
 
 # Copy built artifacts from builder
 COPY --from=builder /app/packages/core/dist packages/core/dist
