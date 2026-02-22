@@ -71,6 +71,9 @@ COPY --from=builder /app/apps/web/dist apps/web/dist
 # Install Playwright browsers
 RUN npx playwright install chromium
 
+# Create data directory for SQLite and screenshots
+RUN mkdir -p /app/data
+
 # Run as non-root user
 RUN groupadd --system a11y && useradd --system --gid a11y --home /app a11y \
     && chown -R a11y:a11y /app
