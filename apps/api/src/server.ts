@@ -55,7 +55,7 @@ export async function buildApp() {
   await fastify.register(issuesRoutes, { prefix: '/api/issues' });
   await fastify.register(reportsRoutes, { prefix: '/api/reports' });
   await fastify.register(vpatRoutes, { prefix: '/api/vpat' });
-  await fastify.register(sseRoutes, { prefix: '/api/sse' });
+  await fastify.register(sseRoutes, { prefix: '/api/scans' });
   await fastify.register(screenshotServePlugin);
 
   // Serve Vue SPA static files (production only — skipped if dist not found)
