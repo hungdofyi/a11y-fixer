@@ -114,7 +114,9 @@ ViolationNode {
   element: string             // CSS selector or Vue template path
   html: string                // HTML/Vue code snippet
   target: string[]            // CSS selector parts
-  failureSummary: string
+  failureSummary: string      // Problem description
+  helpUrl?: string            // Link to fix guidance [NEW]
+  screenshot_path?: string    // Path to highlighted element screenshot [NEW]
 }
 
 FixSuggestion {
@@ -140,9 +142,13 @@ ScanResult {
 
 ## Frontend Applications
 
-### CLI (apps/cli): oclif 3.27+ | 7 Commands
+### CLI (apps/cli): oclif 3.27+ | 9 Commands
 
-**Commands**: scan, report, vpat, fix-suggest, project {create|list|show}
+**Commands**: scan, report, vpat, fix-suggest, project {create|list|show}, issue {show|list} [NEW]
+
+**Issue Commands** [NEW]:
+- `issue show <id>` - Display detailed issue with screenshot, HTML snippet, fix steps, selector copy
+- `issue list --scan-id <id>` - List all issues from a scan with severity filter
 
 **Flow**: CLI args → Load project → Execute scanner → Rules engine → Optional AI → Report generation → SQLite storage
 
@@ -150,13 +156,14 @@ ScanResult {
 
 ---
 
-### REST API (apps/api): Fastify 4.28+ | 6 Route Modules
+### REST API (apps/api): Fastify 4.28+ | 7 Route Modules
 
 **Routes**:
 - `GET/POST /projects` - Project CRUD
 - `POST /scans` - Initiate scan
 - `GET /scans/:id/sse` - Server-Sent Events (real-time progress)
-- `GET /scans/:id/issues` - Violations
+- `GET /scans/:id/issues` - Violations (extended with failureSummary, helpUrl) [UPDATED]
+- `GET /screenshots/:filename` - Serve element screenshots with visual context [NEW]
 - `GET /reports/:id` - Report generation
 - `GET /vpat/:id` - VPAT export
 - Swagger UI at `/docs`
@@ -169,7 +176,14 @@ ScanResult {
 
 **Tech**: Vue Composition API, Tailwind 4.2, shadcn-vue, Pinia, Vue Router, Lucide icons
 
-**Pages**: Projects, scans, issues, VPAT wizard, reports
+**Pages**: Projects, scans, issues, VPAT wizard, reports, issue-detail [NEW]
+
+**Issue Detail Features** [NEW]:
+- Rich HTML snippet viewer with syntax highlighting
+- Inline element screenshot with visual highlighting
+- Fix steps generator (rule-based + AI suggestions)
+- Copy selector button (CSS selector to clipboard)
+- Related WCAG criteria links
 
 **Real-time**: SSE integration for live progress, violation counts, narrative streaming
 
@@ -215,6 +229,33 @@ interface ScanConfig {
   exclude?: string[];         // URL patterns to exclude
 }
 ```
+
+### Screenshot Capture (Visual Context) [NEW]
+```
+Violation detected (e.g., missing alt text)
+    ↓
+[screenshot-capture.ts]
+    ├─ Launch Playwright
+    ├─ Navigate to page
+    ├─ Locate failing element via selector
+    ├─ Highlight element (red border + background overlay)
+    ├─ Capture screenshot
+    └─ Save to disk + return path
+    ↓
+Store in database (issues.screenshot_path)
+    ↓
+[API] GET /screenshots/:filename
+    └─ Serve PNG with cache headers
+    ↓
+[Web UI] Issue detail page
+    └─ Display screenshot + HTML snippet + fix steps
+```
+
+**Features**:
+- Element highlighting with visual indicators
+- High-res PNG with base64 encoding for inline preview
+- Disk storage with cleanup on old scans
+- Fast CDN-friendly serving via API route
 
 ### Static Analysis (Vue SFC)
 ```

@@ -38,6 +38,9 @@ function ensureTables(sqlite: Database.Database): void {
       line INTEGER,
       "column" INTEGER,
       fix_suggestion TEXT,
+      failure_summary TEXT,
+      help_url TEXT,
+      screenshot_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS vpat_entries (
@@ -53,6 +56,19 @@ function ensureTables(sqlite: Database.Database): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Migrate existing DBs: add new columns if missing
+  const existingCols = sqlite.pragma('table_info(issues)') as Array<{ name: string }>;
+  const colNames = new Set(existingCols.map(c => c.name));
+  if (!colNames.has('failure_summary')) {
+    sqlite.exec('ALTER TABLE issues ADD COLUMN failure_summary TEXT');
+  }
+  if (!colNames.has('help_url')) {
+    sqlite.exec('ALTER TABLE issues ADD COLUMN help_url TEXT');
+  }
+  if (!colNames.has('screenshot_path')) {
+    sqlite.exec('ALTER TABLE issues ADD COLUMN screenshot_path TEXT');
+  }
 }
 
 /** Create a Drizzle ORM instance connected to the given SQLite file */

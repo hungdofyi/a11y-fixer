@@ -23,4 +23,8 @@ export interface BrowserScanConfig {
   waitStrategy?: 'load' | 'networkidle' | 'domcontentloaded';
   /** Path to Playwright storageState JSON file for authenticated scanning */
   storageState?: string;
+  /** Capture screenshots of violating elements (default: false) */
+  captureScreenshots?: boolean;
+  /** Max screenshots per scan (default: 50) */
+  maxScreenshots?: number;
 }

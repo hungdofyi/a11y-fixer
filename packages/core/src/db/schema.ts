@@ -35,6 +35,9 @@ export const issues = sqliteTable('issues', {
   line: integer('line'),
   column: integer('column'),
   fixSuggestion: text('fix_suggestion'), // JSON string of FixSuggestion
+  failureSummary: text('failure_summary'),
+  helpUrl: text('help_url'),
+  screenshotPath: text('screenshot_path'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
 });
 

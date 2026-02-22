@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { scans, issues, projects } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
 import { scanUrl, scanFiles } from '@a11y-fixer/scanner';
+import type { ScreenshotResult } from '@a11y-fixer/scanner';
 
 /** Validate URL is a public HTTP(S) URL (prevent SSRF) */
 function isPublicUrl(input: string): boolean {
@@ -124,15 +125,28 @@ async function runScanBackground(
   try {
     let violations: Violation[] = [];
     let scannedCount = 0;
+    let screenshotResults: ScreenshotResult[] = [];
+    const dataDir = process.env['A11Y_DATA_DIR'] ?? resolve(process.cwd(), 'data');
 
     if (scanType === 'browser' && url) {
-      const result = await scanUrl(url);
+      const result = await scanUrl(url, {
+        captureScreenshots: true,
+        scanId,
+        dataDir,
+      });
       violations = result.violations;
       scannedCount = result.scannedCount;
+      screenshotResults = result.screenshotResults ?? [];
     } else if (scanType === 'static' && dir) {
       const result = await scanFiles(dir);
       violations = result.violations;
       scannedCount = result.scannedCount;
+    }
+
+    // Build screenshot path lookup by flattened issue index
+    const screenshotMap = new Map<number, string>();
+    for (const sr of screenshotResults) {
+      screenshotMap.set(sr.issueIndex, sr.relativePath);
     }
 
     // Insert issues in batches
@@ -147,9 +161,13 @@ async function runScanBackground(
         selector: string | null;
         html: string | null;
         pageUrl: string;
+        failureSummary: string | null;
+        helpUrl: string | null;
+        screenshotPath: string | null;
         createdAt: string;
       };
 
+      let issueIndex = 0;
       const issueRows: IssueInsert[] = violations.flatMap((v) => {
         const base = {
           scanId,
@@ -162,17 +180,23 @@ async function runScanBackground(
         };
 
         if (v.nodes.length > 0) {
-          return v.nodes.map(
-            (node): IssueInsert => ({
+          return v.nodes.map((node): IssueInsert => {
+            const row: IssueInsert = {
               ...base,
               element: node.element,
               selector: node.target.join(', '),
               html: node.html,
-            }),
-          );
+              failureSummary: node.failureSummary || null,
+              helpUrl: v.helpUrl ?? null,
+              screenshotPath: screenshotMap.get(issueIndex) ?? null,
+            };
+            issueIndex++;
+            return row;
+          });
         }
 
-        return [{ ...base, element: null, selector: null, html: null }];
+        issueIndex++;
+        return [{ ...base, element: null, selector: null, html: null, failureSummary: null, helpUrl: null, screenshotPath: null }];
       });
 
       await db.insert(issues).values(issueRows);

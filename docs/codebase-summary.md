@@ -32,18 +32,20 @@ a11y-fixer/
 - `src/enums/severity.ts` - Severity enum (Critical/Serious/Moderate/Minor) + weight map
 - `src/enums/conformance-status.ts` - ConformanceStatus (Supports/Partially/DoesNot/NA/NotEvaluated)
 - `src/types/scan-result.ts` - ScanResult, Violation, ViolationNode, PassResult, IncompleteResult
+  - Extended ViolationNode: Added failureSummary, helpUrl, screenshot_path [NEW]
 - `src/types/fix-suggestion.ts` - FixSuggestion with confidence & source (rule|ai)
 - `src/types/vpat-entry.ts` - VpatEntry, VpatEvidence, VpatConfig
 - `src/wcag/criteria-map.ts` - 55 WCAG 2.1/2.2 A+AA criteria with helper functions
 - `src/wcag/standard-mapping.ts` - WCAG → Section 508 + EN 301 549 mapping
 - `src/db/schema.ts` - Drizzle ORM tables: projects, scans, issues, vpatEntries
+  - issues table extended: Added failure_summary, help_url, screenshot_path [NEW]
 - `src/db/connection.ts` - createDb(filePath) with WAL mode
 
 **Exports**: All types re-exported via `src/index.ts` for monorepo consumption.
 
 ---
 
-### packages/scanner (27 files, ~1360 LOC)
+### packages/scanner (28 files, ~1510 LOC) [UPDATED]
 
 **Purpose**: Multi-mode accessibility scanning engine.
 
@@ -78,11 +80,18 @@ a11y-fixer/
 - `skip-link-detector.ts` - Verify skip links present
 - `heading-validator.ts` - Check heading hierarchy
 
+**src/screenshots/** (1 file, ~150 LOC) [NEW]
+- `screenshot-capture.ts` - Capture element screenshots with highlight overlay
+  - Highlights failing elements with red border/background
+  - Generates PNG data with base64 encoding
+  - Stores paths to disk for API serving
+
 **Main Exports**:
-- `scanUrl(url, config)` - Browser scan single page
+- `scanUrl(url, config)` - Browser scan single page (now includes screenshots)
 - `scanSite(siteConfig)` - AsyncGenerator for multi-page crawl
 - `scanVueStatic(paths)` - Static Vue analysis
 - `scanKeyboard(url, config)` - Keyboard/focus testing
+- `captureElementScreenshot(page, selector, outputPath)` - Screenshot with visual context [NEW]
 
 ---
 
@@ -207,6 +216,7 @@ scanner → rules-engine → ai-engine → report-generator
 - `src/commands/report.ts` - Generate scan reports (HTML/CSV/PDF)
 - `src/commands/vpat.ts` - Generate VPAT 2.5 Word documents
 - `src/commands/fix-suggest.ts` - Get AI fix suggestions
+- `src/commands/issue/{show,list}.ts` - Issue detail with screenshots, fix steps [NEW]
 - `src/commands/project/{create,list,show}.ts` - Project CRUD
 
 **Main Exports**:
@@ -223,7 +233,8 @@ scanner → rules-engine → ai-engine → report-generator
 - `src/server.ts` - Fastify app setup, CORS, Swagger
 - `src/routes/projects.ts` - Project CRUD endpoints
 - `src/routes/scans.ts` - Scan management
-- `src/routes/issues.ts` - Violation queries
+- `src/routes/issues.ts` - Violation queries (now includes failureSummary, helpUrl) [UPDATED]
+- `src/routes/screenshots.ts` - Screenshot serving (GET /screenshots/:filename) [NEW]
 - `src/routes/sse.ts` - Server-Sent Events for real-time progress
 - `src/routes/reports.ts` - Report generation
 - `src/routes/vpat.ts` - VPAT export
@@ -247,7 +258,7 @@ scanner → rules-engine → ai-engine → report-generator
   - `projects.vue` - Project dashboard
   - `scans.vue` - Scan results viewer
   - `vpat-wizard.vue` - VPAT interactive form
-  - `issues.vue` - Violation details
+  - `issue-detail.vue` - Rich issue detail with screenshots, HTML snippets, fix steps [NEW/ENHANCED]
 - `src/components/` - Reusable UI components
 - `src/api/` - API client (fetch wrapper)
 
@@ -265,18 +276,19 @@ scanner → rules-engine → ai-engine → report-generator
 | Package | Files | LOC | Key Exports |
 |---------|-------|-----|------------|
 | core | 14 | 409 | Types, enums, schema |
-| scanner | 27 | 1360 | scanUrl, scanSite, scanKeyboard |
+| scanner | 28 | 1510 | scanUrl, scanSite, scanKeyboard, captureElementScreenshot |
 | rules-engine | 13 | 510 | RuleRegistry, classifySeverity |
 | ai-engine | 19 | 978 | queryAgent, analyzeComplexIssue |
 | report-generator | 10 | 471 | buildVpat, generateScanReport |
-| **Packages Subtotal** | **83** | **3728** | — |
+| **Packages Subtotal** | **84** | **3878** | — |
 | | | | |
 | cli | 8 | 280 | CLI commands |
-| api | 10 | 450 | REST routes |
-| web | 15 | 350 | Vue SPA |
-| **Apps Subtotal** | **33** | **1080** | — |
+| api | 11 | 480 | REST routes + screenshots [UPDATED] |
+| web | 15 | 370 | Vue SPA + issue-detail [UPDATED] |
+| cli | 10 | 320 | CLI commands + issue commands [UPDATED] |
+| **Apps Subtotal** | **36** | **1170** | — |
 | | | | |
-| **TOTAL** | **116** | **4808** | 8 packages |
+| **TOTAL** | **119** | **4958** | 8 packages |
 
 ## Build & Runtime
 

@@ -31,6 +31,10 @@ export default class Scan extends BaseCommand {
     'storage-state': Flags.string({
       description: 'Path to Playwright storageState JSON for authenticated scanning',
     }),
+    screenshots: Flags.boolean({
+      description: 'Capture element screenshots during browser scan',
+      default: false,
+    }),
   };
 
   async run(): Promise<void> {
@@ -54,6 +58,7 @@ export default class Scan extends BaseCommand {
           wcagLevel: flags['wcag-level'] as 'a' | 'aa' | 'aaa',
           maxPages: flags.pages,
           storageState: flags['storage-state'],
+          captureScreenshots: flags.screenshots,
         });
         results.push(result);
         spinner.succeed(`Browser scan: ${result.violations.length} violations`);

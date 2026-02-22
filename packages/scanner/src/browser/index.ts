@@ -4,3 +4,5 @@ export type { ViewportSize, ContextOptions } from './browser-launcher.js';
 export { scanPage } from './axe-scanner.js';
 export { discoverUrls } from './page-crawler.js';
 export { normalizeAxeResults } from './result-normalizer.js';
+export { captureViolationScreenshots } from './screenshot-capture.js';
+export type { ScreenshotResult } from './screenshot-capture.js';

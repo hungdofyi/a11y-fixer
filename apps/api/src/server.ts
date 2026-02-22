@@ -6,6 +6,7 @@ import authPlugin from './plugins/auth.js';
 import oauthSsoPlugin from './plugins/oauth.js';
 import dbPlugin from './plugins/db.js';
 import staticFilesPlugin from './plugins/static-files.js';
+import screenshotServePlugin from './plugins/screenshot-serve.js';
 import projectsRoutes from './routes/projects.js';
 import scansRoutes from './routes/scans.js';
 import issuesRoutes from './routes/issues.js';
@@ -55,6 +56,7 @@ export async function buildApp() {
   await fastify.register(reportsRoutes, { prefix: '/api/reports' });
   await fastify.register(vpatRoutes, { prefix: '/api/vpat' });
   await fastify.register(sseRoutes, { prefix: '/api/sse' });
+  await fastify.register(screenshotServePlugin);
 
   // Serve Vue SPA static files (production only — skipped if dist not found)
   await fastify.register(staticFilesPlugin);

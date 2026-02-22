@@ -1,26 +1,44 @@
 <script setup lang="ts">
-// Issue detail view: full violation info, affected elements, fix suggestion
+// Issue detail view: rich audit experience with screenshots, fix steps, HTML snippet
 import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan-store.js';
 import SeverityBadge from '../components/severity-badge.vue';
 import FixViewer from '../components/fix-viewer.vue';
+import HtmlSnippetViewer from '../components/html-snippet-viewer.vue';
+import ElementScreenshot from '../components/element-screenshot.vue';
+import FixStepsViewer from '../components/fix-steps-viewer.vue';
+import SelectorCopyBox from '../components/selector-copy-box.vue';
 import UiButton from '../components/ui/button.vue';
 import UiCard from '../components/ui/card.vue';
 import UiCardHeader from '../components/ui/card-header.vue';
 import UiCardTitle from '../components/ui/card-title.vue';
 import UiCardContent from '../components/ui/card-content.vue';
+import { parseWcagTags, formatWcagTag } from '../utils/wcag-link-builder.js';
 
 const route = useRoute();
 const router = useRouter();
 const store = useScanStore();
 
 const issueId = computed(() => String(route.params.id));
+const issue = computed(() => store.currentIssue);
+
+const wcagLabels = computed(() => {
+  if (!issue.value?.wcagCriteria) return [];
+  return parseWcagTags(issue.value.wcagCriteria)
+    .map(tag => formatWcagTag(tag))
+    .filter(Boolean) as string[];
+});
+
+const screenshotUrl = computed(() => {
+  if (!issue.value?.screenshotPath) return undefined;
+  return `/api/${issue.value.screenshotPath}`;
+});
 
 onMounted(() => { void store.fetchIssue(issueId.value); });
 
 function goBack(): void {
-  const scanId = store.currentIssue?.scanId;
+  const scanId = issue.value?.scanId;
   if (scanId) {
     void router.push(`/scans/${scanId}`);
   } else {
@@ -30,7 +48,7 @@ function goBack(): void {
 </script>
 
 <template>
-  <div class="max-w-2xl">
+  <div class="max-w-3xl">
     <nav aria-label="Breadcrumb" class="mb-5">
       <UiButton variant="outline" size="sm" @click="goBack">
         ← Back to Scan Results
@@ -42,12 +60,24 @@ function goBack(): void {
       {{ store.error }}
     </p>
 
-    <template v-else-if="store.currentIssue">
+    <template v-else-if="issue">
+      <!-- Header: rule ID + severity -->
       <div class="flex items-center gap-4 mb-6 flex-wrap">
-        <h1 class="text-2xl font-bold text-slate-900">{{ store.currentIssue.ruleId }}</h1>
-        <SeverityBadge :severity="store.currentIssue.severity" />
+        <h1 class="text-2xl font-bold text-slate-900">{{ issue.ruleId }}</h1>
+        <SeverityBadge :severity="issue.severity" />
       </div>
 
+      <!-- Element Screenshot -->
+      <UiCard v-if="screenshotUrl" class="mb-6">
+        <UiCardHeader>
+          <UiCardTitle>Element Screenshot</UiCardTitle>
+        </UiCardHeader>
+        <UiCardContent>
+          <ElementScreenshot :screenshot-url="screenshotUrl" />
+        </UiCardContent>
+      </UiCard>
+
+      <!-- Details -->
       <UiCard class="mb-6">
         <UiCardHeader>
           <UiCardTitle>Details</UiCardTitle>
@@ -56,41 +86,66 @@ function goBack(): void {
           <dl class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">WCAG Criteria</dt>
-              <dd class="text-sm text-slate-900 leading-relaxed">{{ store.currentIssue.wcagCriteria }}</dd>
+              <dd class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="label in wcagLabels"
+                  :key="label"
+                  class="inline-block text-xs font-medium px-2 py-0.5 rounded bg-indigo-50 text-indigo-700"
+                >{{ label }}</span>
+                <span v-if="!wcagLabels.length" class="text-sm text-slate-900">{{ issue.wcagCriteria }}</span>
+              </dd>
             </div>
             <div class="flex flex-col gap-1">
               <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">Severity</dt>
-              <dd><SeverityBadge :severity="store.currentIssue.severity" /></dd>
+              <dd><SeverityBadge :severity="issue.severity" /></dd>
             </div>
             <div class="col-span-2 flex flex-col gap-1">
               <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">Description</dt>
-              <dd class="text-sm text-slate-900 leading-relaxed">{{ store.currentIssue.description }}</dd>
+              <dd class="text-sm text-slate-900 leading-relaxed">{{ issue.description }}</dd>
             </div>
             <div class="col-span-2 flex flex-col gap-1">
               <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">Page URL</dt>
               <dd class="text-sm leading-relaxed">
-                <a :href="store.currentIssue.pageUrl" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
-                  {{ store.currentIssue.pageUrl }}
+                <a :href="issue.pageUrl" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
+                  {{ issue.pageUrl }}
                 </a>
               </dd>
             </div>
-            <div v-if="store.currentIssue.target" class="col-span-2 flex flex-col gap-1">
-              <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">CSS Target</dt>
-              <dd class="text-sm"><code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">{{ store.currentIssue.target }}</code></dd>
+            <div v-if="issue.selector" class="col-span-2 flex flex-col gap-1">
+              <dt class="text-xs font-bold uppercase tracking-wide text-slate-500">CSS Selector</dt>
+              <dd><SelectorCopyBox :selector="issue.selector" /></dd>
             </div>
           </dl>
         </UiCardContent>
       </UiCard>
 
-      <UiCard>
+      <!-- HTML Snippet -->
+      <UiCard v-if="issue.html" class="mb-6">
         <UiCardHeader>
-          <UiCardTitle>Fix Information</UiCardTitle>
+          <UiCardTitle>HTML Element</UiCardTitle>
         </UiCardHeader>
         <UiCardContent>
-          <FixViewer
-            :element="store.currentIssue.element"
-            :fix-suggestion="store.currentIssue.fixSuggestion"
-          />
+          <HtmlSnippetViewer :html="issue.html" />
+        </UiCardContent>
+      </UiCard>
+
+      <!-- How to Fix (axe failureSummary) -->
+      <UiCard v-if="issue.failureSummary" class="mb-6">
+        <UiCardHeader>
+          <UiCardTitle>How to Fix</UiCardTitle>
+        </UiCardHeader>
+        <UiCardContent>
+          <FixStepsViewer :failure-summary="issue.failureSummary" :help-url="issue.helpUrl" />
+        </UiCardContent>
+      </UiCard>
+
+      <!-- AI Fix Suggestion (existing) -->
+      <UiCard v-if="issue.element || issue.fixSuggestion">
+        <UiCardHeader>
+          <UiCardTitle>AI Fix Suggestion</UiCardTitle>
+        </UiCardHeader>
+        <UiCardContent>
+          <FixViewer :element="issue.element" :fix-suggestion="issue.fixSuggestion" />
         </UiCardContent>
       </UiCard>
     </template>

@@ -16,7 +16,8 @@
 | 8 | CLI Application | COMPLETE | 100% | 2026-02 | 2026-02 |
 | 9 | API + Dashboard | COMPLETE | 100% | 2026-02 | 2026-02 |
 | 10 | Google OAuth SSO + Docker | COMPLETE | 100% | 2026-02 | 2026-02 |
-| 11 | Test Suite | PENDING | 0% | TBD | TBD |
+| 11 | Enhanced Issue Detail + Screenshots | COMPLETE | 100% | 2026-02 | 2026-02 |
+| 12 | Test Suite | PENDING | 0% | TBD | TBD |
 
 ## Completed Phases
 
@@ -275,7 +276,53 @@
 
 ---
 
-### Phase 11: Test Suite (PENDING)
+### Phase 11: Enhanced Issue Detail with Visual Context (COMPLETE)
+
+**Objectives**:
+- [x] Implement element screenshot capture with visual highlighting
+- [x] Store screenshot paths in database (issues table)
+- [x] Add failureSummary and helpUrl fields to issue schema
+- [x] Serve screenshots via REST API endpoint
+- [x] Build rich issue detail page in Web UI
+- [x] Add CLI commands for issue inspection
+- [x] Display HTML snippets with syntax highlighting
+- [x] Provide copy-to-clipboard selector functionality
+
+**Deliverables**:
+- `packages/scanner/src/screenshots/screenshot-capture.ts` - Element capture with red highlight overlay
+- `packages/core/src/db/schema.ts` - Extended issues table (failure_summary, help_url, screenshot_path)
+- `packages/core/src/types/scan-result.ts` - Updated ViolationNode with helpUrl, screenshot_path
+- `apps/api/src/routes/screenshots.ts` - New GET /screenshots/:filename endpoint
+- `apps/api/src/routes/issues.ts` - Extended response with new fields
+- `apps/web/src/views/issue-detail.vue` - Rich detail view with screenshot, HTML viewer, fix steps
+- `apps/cli/src/commands/issue/show.ts` - Display issue detail in CLI (with screenshot links)
+- `apps/cli/src/commands/issue/list.ts` - List issues by scan with severity filtering
+
+**Key Features**:
+- Element highlighting: Red border + semi-transparent background overlay
+- Screenshot storage: PNG files with base64 encoding for API preview
+- Responsive design: Works on mobile and desktop browsers
+- Copy-friendly: One-click CSS selector copy to clipboard
+- AI-powered context: Fix steps pulled from rule templates + AI suggestions
+
+**Key Metrics**:
+- 150 LOC for screenshot capture module
+- 30 LOC for API screenshot endpoint
+- 200+ LOC for issue-detail Vue component
+- Fast load: Screenshots cached, API supports ETags
+- Full integration with existing violation data
+
+**Files Modified**:
+- Updated CLI commands from 8 to 10 files (issue commands added)
+- Updated API routes from 6 to 7 modules (screenshots added)
+- Updated Web views: added issue-detail.vue
+
+**Build Status**: All packages PASS, 0 errors, lint approved
+**Status**: COMPLETE (2026-02-22)
+
+---
+
+### Phase 12: Test Suite (PENDING)
 
 **Objectives**:
 - [ ] Unit tests for all packages (>80% coverage)
@@ -302,7 +349,7 @@
 
 ## Future Phases
 
-### Phase 12: Additional Standards (FUTURE)
+### Phase 13: Additional Standards (FUTURE)
 
 **Planned Support**:
 - [ ] AODA (Accessibility for Ontarians with Disabilities Act)
@@ -312,7 +359,7 @@
 
 **Estimated Effort**: Medium (new criteria mapping only)
 
-### Phase 13: Integrations (FUTURE)
+### Phase 14: Integrations (FUTURE)
 
 **Planned Integrations**:
 - [ ] Slack bot for scan notifications
@@ -321,7 +368,7 @@
 - [ ] Azure DevOps extension
 - [ ] JIRA issue creation for violations
 
-### Phase 14: Advanced Analytics (FUTURE)
+### Phase 15: Advanced Analytics (FUTURE)
 
 **Planned Features**:
 - [ ] Trend analysis over time
@@ -330,7 +377,7 @@
 - [ ] Team velocity metrics
 - [ ] Export analytics dashboard
 
-### Phase 15: Performance & Scale (FUTURE)
+### Phase 16: Performance & Scale (FUTURE)
 
 **Planned Improvements**:
 - [ ] Distributed scanning (multiple workers)

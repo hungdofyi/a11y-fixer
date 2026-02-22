@@ -23,8 +23,12 @@ export interface Issue {
   description: string;
   pageUrl: string;
   element: string;
-  target: string;
+  selector: string;
+  html?: string;
   fixSuggestion?: string;
+  failureSummary?: string;
+  helpUrl?: string;
+  screenshotPath?: string;
 }
 
 export interface TriggerScanInput {
