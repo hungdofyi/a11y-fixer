@@ -115,7 +115,7 @@ TypeScript monorepo using pnpm workspaces and Turborepo.
 - **Build**: Turborepo, TypeScript 5.7+, ESM
 - **Scanning**: Playwright, axe-core
 - **Database**: SQLite (Drizzle ORM)
-- **AI**: Claude API (optional)
+- **AI**: Claude via OAuth PKCE (optional)
 - **Reports**: Word (.docx), HTML, CSV, PDF
 - **API**: Fastify with Swagger
 - **Web**: Vue 3, Vite, Tailwind CSS, shadcn-vue

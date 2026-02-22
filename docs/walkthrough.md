@@ -146,7 +146,7 @@ pnpm a11y report --report-format pdf -o report.pdf
 # VPAT compliance document
 pnpm a11y vpat -o compliance.docx
 
-# VPAT with AI-generated descriptions (needs ANTHROPIC_API_KEY in .env)
+# VPAT with AI-generated descriptions (uses OAuth — see AI Features below)
 pnpm a11y vpat --ai -o compliance.docx
 ```
 
@@ -156,7 +156,7 @@ pnpm a11y vpat --ai -o compliance.docx
 # Rule-based (no AI needed)
 pnpm a11y fix-suggest https://example.com
 
-# AI-powered (needs ANTHROPIC_API_KEY in .env)
+# AI-powered (uses OAuth — see AI Features below)
 pnpm a11y fix-suggest https://example.com --ai
 ```
 
@@ -210,9 +210,7 @@ Only needed if you're deploying the dashboard for your team.
 
 ### AI features (optional)
 
-| Variable | What it is |
-|----------|-----------|
-| `ANTHROPIC_API_KEY` | Enables AI-powered fix suggestions and VPAT narratives |
+AI-powered features (fix suggestions, VPAT narratives) use OAuth PKCE — no API key needed. When you use an `--ai` flag for the first time, the app opens a browser for you to authorize with your Claude account. Your token is stored locally and refreshed automatically.
 
 ### Setting up Google OAuth
 
