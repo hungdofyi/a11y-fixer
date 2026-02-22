@@ -32,8 +32,23 @@ const countBySeverity = computed(() => {
 
 const SEVERITIES = ['critical', 'serious', 'moderate', 'minor'] as const;
 
-function reportUrl(format: 'html' | 'csv'): string {
-  return apiUrl(`/reports/${scanId.value}?format=${format}`);
+/** Download report via fetch + blob to handle cross-origin correctly */
+async function downloadReport(format: 'html' | 'csv'): Promise<void> {
+  const url = apiUrl(`/reports/${scanId.value}?format=${format}`);
+  const res = await fetch(url, { credentials: 'include' });
+  if (!res.ok) {
+    store.error = `Download failed: ${res.statusText}`;
+    return;
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = `scan-${scanId.value}.${format}`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
 }
 
 function handleSelectIssue(issue: Issue): void {
@@ -64,10 +79,10 @@ function formatDate(iso?: string): string {
         </p>
       </div>
       <div class="flex gap-3 flex-shrink-0" aria-label="Download reports">
-        <UiButton variant="outline" as="a" :href="reportUrl('html')" download aria-label="Download HTML report">
+        <UiButton variant="outline" aria-label="Download HTML report" @click="void downloadReport('html')">
           ↓ HTML Report
         </UiButton>
-        <UiButton variant="outline" as="a" :href="reportUrl('csv')" download aria-label="Download CSV report">
+        <UiButton variant="outline" aria-label="Download CSV report" @click="void downloadReport('csv')">
           ↓ CSV Report
         </UiButton>
       </div>

@@ -27,7 +27,12 @@ const reportsRoutes: FastifyPluginAsync = async (fastify) => {
       wcagCriteria: safeParseJson<string[]>(row.wcagCriteria, []),
       severity: row.severity as Violation['severity'],
       description: row.description,
-      nodes: [],
+      nodes: [{
+        element: row.element ?? '',
+        html: row.html ?? '',
+        target: row.selector ? [row.selector] : [],
+        failureSummary: row.failureSummary ?? '',
+      }],
       pageUrl: row.pageUrl ?? '',
     }));
 

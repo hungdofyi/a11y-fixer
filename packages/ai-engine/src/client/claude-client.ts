@@ -24,14 +24,10 @@ const DEFAULT_MODEL = 'claude-sonnet-4-5';
 
 /**
  * Load OAuth token and set CLAUDE_CODE_OAUTH_TOKEN env var.
- * No-op if ANTHROPIC_API_KEY is already set.
+ * OAuth PKCE only — internal tool, all users use Claude subscription.
  * Returns true if auth was configured successfully.
  */
 export async function setupAuth(interactive = false): Promise<boolean> {
-  // API key takes priority
-  if (process.env['ANTHROPIC_API_KEY']) return true;
-
-  // Try to get stored OAuth token (non-interactive by default)
   const token = await getValidToken(interactive);
   if (!token) return false;
 

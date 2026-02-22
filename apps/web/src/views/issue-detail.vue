@@ -139,13 +139,29 @@ function goBack(): void {
         </UiCardContent>
       </UiCard>
 
-      <!-- AI Fix Suggestion (existing) -->
-      <UiCard v-if="issue.element || issue.fixSuggestion">
+      <!-- AI Fix Suggestion -->
+      <UiCard class="mb-6">
         <UiCardHeader>
-          <UiCardTitle>AI Fix Suggestion</UiCardTitle>
+          <div class="flex items-center justify-between w-full">
+            <UiCardTitle>AI Fix Suggestion</UiCardTitle>
+            <UiButton
+              v-if="!issue.fixSuggestion"
+              size="sm"
+              :disabled="store.aiFixLoading"
+              @click="void store.generateAiFix(issueId)"
+            >
+              {{ store.aiFixLoading ? 'Generating…' : 'Generate AI Fix' }}
+            </UiButton>
+          </div>
         </UiCardHeader>
         <UiCardContent>
-          <FixViewer :element="issue.element" :fix-suggestion="issue.fixSuggestion" />
+          <p v-if="!issue.fixSuggestion && !store.aiFixLoading" class="text-sm text-slate-500">
+            No AI fix generated yet. Click "Generate AI Fix" to request one.
+          </p>
+          <p v-else-if="!issue.fixSuggestion && store.aiFixLoading" class="text-sm text-slate-500" aria-live="polite">
+            Generating AI fix suggestion…
+          </p>
+          <FixViewer v-else :element="issue.element" :fix-suggestion="issue.fixSuggestion" />
         </UiCardContent>
       </UiCard>
     </template>

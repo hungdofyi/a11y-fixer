@@ -22,6 +22,13 @@ export default class Vpat extends BaseCommand {
     spinner.start();
 
     try {
+      if (flags.ai) {
+        this.warn(
+          'AI narrative generation requires scan entries. ' +
+          'Pass --scan-id to load real violations, or omit --ai for now.',
+        );
+      }
+
       const { buildVpat } = await import('@a11y-fixer/report-generator');
       const vpatOutput = await buildVpat(
         {

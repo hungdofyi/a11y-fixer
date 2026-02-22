@@ -54,6 +54,7 @@ export const useScanStore = defineStore('scans', () => {
   const issues = ref<Issue[]>([]);
   const totalIssues = ref(0);
   const loading = ref(false);
+  const aiFixLoading = ref(false);
   const error = ref<string | null>(null);
 
   async function fetchScans(projectId: string): Promise<void> {
@@ -125,6 +126,25 @@ export const useScanStore = defineStore('scans', () => {
     }
   }
 
+  /** Request AI fix for an issue — stores full fix JSON in fixSuggestion */
+  async function generateAiFix(issueId: string): Promise<void> {
+    aiFixLoading.value = true;
+    error.value = null;
+    try {
+      const result = await apiPost<{ fix: Record<string, unknown> }>(
+        `/issues/${issueId}/ai-fix`,
+        {},
+      );
+      if (currentIssue.value && currentIssue.value.id === issueId) {
+        currentIssue.value = { ...currentIssue.value, fixSuggestion: JSON.stringify(result.fix) };
+      }
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'AI fix generation failed';
+    } finally {
+      aiFixLoading.value = false;
+    }
+  }
+
   return {
     scans,
     currentScan,
@@ -132,11 +152,13 @@ export const useScanStore = defineStore('scans', () => {
     issues,
     totalIssues,
     loading,
+    aiFixLoading,
     error,
     fetchScans,
     fetchScan,
     triggerScan,
     fetchIssues,
     fetchIssue,
+    generateAiFix,
   };
 });

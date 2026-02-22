@@ -32,14 +32,17 @@ Accessibility compliance is critical yet time-consuming to audit and remediate. 
 **Analysis**
 - Rule-to-WCAG mapping: All violations linked to 55 WCAG 2.1/2.2 A+AA criteria
 - Severity classification: 4-level severity (Critical/Serious/Moderate/Minor) with weighting
-- AI-powered fixes: Claude AI generates code fix suggestions with confidence scores
+- AI-powered fixes: Claude AI generates code fix suggestions with confidence scores (CLI + API)
 - Cache optimization: Response cache to avoid redundant API calls
+- CLI AI fixes: `fix-suggest --ai` for violations without rule-based fixes
+- Web UI AI fixes: On-demand fix generation button per violation
 
 **Reporting**
 - VPAT 2.5 generation: .docx format (ITI template) with conformance status per criterion
-- Scan reports: HTML (interactive), CSV (data export), PDF (print-friendly)
+- Scan reports: HTML (interactive), CSV (data export with fallback), PDF (print-friendly)
 - Evidence tracking: Store violation evidence, fix suggestions in database
-- Narrative generation: AI generates remediation narratives per WCAG criterion
+- Narrative generation: AI generates remediation narratives per WCAG criterion (web UI)
+- Download fixes: Proper fetch+blob handling for report downloads (no broken UiButton)
 
 **Data Persistence**
 - SQLite database with Drizzle ORM
@@ -48,6 +51,7 @@ Accessibility compliance is critical yet time-consuming to audit and remediate. 
 - Historical scan comparison
 
 **Authentication & Deployment**
+- Claude AI OAuth 2.0 PKCE flow (no env var check)
 - Google OAuth 2.0 PKCE flow for secure user authentication
 - Domain-restricted login (Google Workspace support via ALLOWED_DOMAIN)
 - Session management with encrypted httpOnly cookies
@@ -55,6 +59,8 @@ Accessibility compliance is critical yet time-consuming to audit and remediate. 
 - Docker containerization for production deployment
 - Multi-stage Docker build optimized for pnpm monorepo
 - Static SPA serving integrated with API
+- Web UI AI Fix generation endpoint (POST /api/issues/:id/ai-fix)
+- FixViewer component with before/after diff display
 
 ### Non-Functional Requirements
 

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, and, sql } from 'drizzle-orm';
 import { issues } from '@a11y-fixer/core';
+import type { Violation } from '@a11y-fixer/core';
 
 /** Routes for querying issues with pagination and filtering */
 const issuesRoutes: FastifyPluginAsync = async (fastify) => {
@@ -73,6 +74,66 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
     }
     reply.send(issue);
   });
+
+  // POST /:id/ai-fix — on-demand AI fix generation for a stored issue
+  fastify.post<{ Params: { id: string } }>('/:id/ai-fix', async (req, reply) => {
+    // Extend timeout for AI calls (default Fastify is too short for ~10s Claude API)
+    req.raw.setTimeout(60_000);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return reply.code(400).send({ error: 'Invalid issue id' });
+
+      const [issue] = await fastify.db.select().from(issues).where(eq(issues.id, id));
+      if (!issue) return reply.code(404).send({ error: 'Issue not found' });
+
+      const { setupAuth, analyzeComplexIssue } = await import('@a11y-fixer/ai-engine');
+
+      const authed = await setupAuth(false);
+      if (!authed) {
+        return reply.code(503).send({
+          error: 'AI unavailable: run `a11y-fixer auth login` to authenticate via OAuth',
+        });
+      }
+
+      // Reconstruct minimal Violation from DB columns
+      const violation: Violation = {
+        ruleId: issue.ruleId,
+        description: issue.description,
+        severity: issue.severity as Violation['severity'],
+        wcagCriteria: safeParseJson<string[]>(issue.wcagCriteria, []),
+        nodes: [{
+          element: issue.element ?? '',
+          html: issue.html ?? '',
+          target: issue.selector ? [issue.selector] : [],
+          failureSummary: issue.failureSummary ?? '',
+        }],
+        pageUrl: issue.pageUrl ?? '',
+      };
+
+      try {
+        const fix = await analyzeComplexIssue(violation, issue.html ?? '');
+
+        await fastify.db
+          .update(issues)
+          .set({ fixSuggestion: JSON.stringify(fix) })
+          .where(eq(issues.id, id));
+
+        reply.send({ fix });
+      } catch (err) {
+        reply.code(500).send({
+          error: 'AI analysis failed',
+          detail: (err as Error).message,
+        });
+      }
+  });
 };
+
+function safeParseJson<T>(value: string | null, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 export default issuesRoutes;

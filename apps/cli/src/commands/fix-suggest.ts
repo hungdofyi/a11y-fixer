@@ -59,6 +59,28 @@ export default class FixSuggest extends BaseCommand {
       fix: registry.getFix(v),
     }));
 
+    // AI branch — only runs when --ai flag set
+    if (flags.ai) {
+      const { setupAuth, analyzeComplexIssue } = await import('@a11y-fixer/ai-engine');
+      const authed = await setupAuth(true);
+      if (!authed) {
+        this.warn('AI unavailable: run `a11y-fixer auth login` first.');
+      } else {
+        const aiSpinner = createSpinner('Generating AI fixes...');
+        aiSpinner.start();
+        for (let i = 0; i < suggestions.length; i++) {
+          if (!suggestions[i]!.fix) {
+            try {
+              suggestions[i]!.fix = await analyzeComplexIssue(violations[i]!, '');
+            } catch {
+              // Non-fatal: skip this violation, continue batch
+            }
+          }
+        }
+        aiSpinner.succeed('AI fixes applied');
+      }
+    }
+
     if (flags.format === 'json') {
       this.writeOutput(formatJson(suggestions), flags);
     } else {

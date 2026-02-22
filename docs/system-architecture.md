@@ -144,11 +144,11 @@ ScanResult {
 
 ### CLI (apps/cli): oclif 3.27+ | 9 Commands
 
-**Commands**: scan, report, vpat, fix-suggest, project {create|list|show}, issue {show|list} [NEW]
+**Commands**: scan, report, vpat, fix-suggest, project {create|list|show}, issue {show|list}
 
-**Issue Commands** [NEW]:
-- `issue show <id>` - Display detailed issue with screenshot, HTML snippet, fix steps, selector copy
-- `issue list --scan-id <id>` - List all issues from a scan with severity filter
+**AI-Powered Commands**:
+- `fix-suggest --ai` - Generate AI fixes for violations without rule-based solutions
+- `vpat --ai` - Shows stub warning (VPAT narrative generation via API/web UI)
 
 **Flow**: CLI args → Load project → Execute scanner → Rules engine → Optional AI → Report generation → SQLite storage
 
@@ -156,19 +156,20 @@ ScanResult {
 
 ---
 
-### REST API (apps/api): Fastify 4.28+ | 7 Route Modules
+### REST API (apps/api): Fastify 4.28+ | 8 Route Modules
 
 **Routes**:
 - `GET/POST /projects` - Project CRUD
 - `POST /scans` - Initiate scan
 - `GET /scans/:id/sse` - Server-Sent Events (real-time progress)
-- `GET /scans/:id/issues` - Violations (extended with failureSummary, helpUrl) [UPDATED]
-- `GET /screenshots/:filename` - Serve element screenshots with visual context [NEW]
-- `GET /reports/:id` - Report generation
+- `GET /scans/:id/issues` - Violations (reconstructs ViolationNode from DB columns)
+- `GET /screenshots/:filename` - Serve element screenshots with visual context
+- `POST /api/issues/:id/ai-fix` - Generate AI fix for violation [NEW]
+- `GET /reports/:id` - Report generation (CSV exporter with fallback for empty nodes)
 - `GET /vpat/:id` - VPAT export
 - Swagger UI at `/docs`
 
-**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes
+**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes, AI-powered fixes
 
 ---
 
@@ -178,12 +179,14 @@ ScanResult {
 
 **Pages**: Projects, scans, issues, VPAT wizard, reports, issue-detail [NEW]
 
-**Issue Detail Features** [NEW]:
+**Issue Detail Features**:
 - Rich HTML snippet viewer with syntax highlighting
 - Inline element screenshot with visual highlighting
 - Fix steps generator (rule-based + AI suggestions)
+- "Generate AI Fix" button for on-demand AI analysis
 - Copy selector button (CSS selector to clipboard)
 - Related WCAG criteria links
+- FixViewer component displaying before/after code diff with confidence badge
 
 **Real-time**: SSE integration for live progress, violation counts, narrative streaming
 
@@ -380,7 +383,7 @@ function aggregateConformance(
 
 ## AI Engine (packages/ai-engine)
 
-### OAuth PKCE Authentication
+### Claude AI OAuth PKCE Authentication
 
 ```
 [OAuth Flow Start]
@@ -414,6 +417,8 @@ Check stored token at ~/.a11y-fixer/auth.json (encrypted)
     └─ Store at ~/.a11y-fixer/auth.json
     ↓
 Token ready for use in queryAgent()
+
+**NOTE**: setupAuth() no longer checks ANTHROPIC_API_KEY — OAuth PKCE is the only auth method
 ```
 
 **Token Storage**:
@@ -434,6 +439,15 @@ interface OAuthToken {
 ### AI Analysis Pipeline
 
 ```
+[CLI: fix-suggest --ai]
+    ├─ For each violation without rule-based fix
+    └─ Calls analyzeComplexIssue()
+
+[API: POST /api/issues/:id/ai-fix]
+    ├─ Reconstructs Violation from DB columns
+    ├─ Calls analyzeComplexIssue()
+    └─ Persists fix to DB fixSuggestion column
+
 [analyzeComplexIssue()]
     ├─ Input: Violation + sourceCode
     ├─ Compute cache key (SHA256 of rule + HTML + code)
@@ -509,8 +523,10 @@ interface OAuthToken {
 
 ```
 [exportCsv()]
+    ├─ Reconstructs ViolationNode from DB columns (element, html, selector, failureSummary)
     ├─ Headers: ruleId, wcagCriteria, severity, element, suggestion
     ├─ Rows: One per violation
+    ├─ Fallback for empty nodes (uses selector or generic placeholder)
     └─ Proper escaping (quotes, newlines)
 
 [exportPdf()]
@@ -604,7 +620,7 @@ User: a11y scan https://example.com --ai --output report.docx
 
 1. CLI Parse & Auth
    ├─ Parse command-line arguments
-   ├─ Setup OAuth token (if needed)
+   ├─ Setup OAuth token (PKCE only, no env var check)
    └─ Load/create project from SQLite
 
 2. Execution
@@ -620,23 +636,24 @@ User: a11y scan https://example.com --ai --output report.docx
    └─ Aggregate conformance status per criterion
 
 4. AI Analysis (Optional)
-   ├─ For each violation:
+   ├─ fix-suggest --ai calls analyzeComplexIssue()
+   ├─ For each violation without rule-based fix:
    │  ├─ Generate cache key (rule + HTML)
    │  ├─ Check cache
    │  ├─ Call Claude API (if miss)
    │  └─ Return FixSuggestion with confidence
-   └─ Batch VPAT narrative generation (AsyncGenerator)
+   └─ vpat --ai shows stub warning (use web UI instead)
 
 5. Report Generation
    ├─ buildVpat() → Word + HTML output
    ├─ generateScanReport() → HTML with severity cards
-   ├─ exportCsv() → CSV table
+   ├─ exportCsv() → CSV with fallback for empty nodes
    └─ exportPdf() → PDF (dynamic Playwright)
 
 6. Database Storage
    ├─ INSERT projects (if new)
    ├─ INSERT scans record
-   ├─ INSERT issues (one per violation)
+   ├─ INSERT issues (reconstructs ViolationNode from DB columns)
    ├─ INSERT vpatEntries (one per criterion)
    └─ Timestamps & metadata saved
 
@@ -662,7 +679,7 @@ User (Web): Click "New Scan" → POST /scans
 
 2. Fastify Route Handler
    ├─ Validate input schema
-   ├─ Authenticate user (JWT)
+   ├─ Authenticate user (OAuth or API key)
    ├─ Create scan record (status='pending')
    ├─ Save to SQLite
    └─ Return { scanId: 5, status: 'pending' }
@@ -690,15 +707,31 @@ User (Web): Click "New Scan" → POST /scans
    ├─ Updates violation count in real-time
    ├─ Renders progress bar
    ├─ Shows live results table
+   ├─ Click violation → Issue Detail page
    └─ Auto-refresh on completion
 
-6. Report Generation (On-Demand)
+6. AI Fix Generation (On-Demand)
+   POST /api/issues/:id/ai-fix
+
+   API flow:
+   ├─ Reconstructs Violation from DB (element, html, selector, failureSummary)
+   ├─ Calls analyzeComplexIssue()
+   ├─ Persists fixSuggestion to DB
+   └─ Returns FixSuggestion JSON
+
+7. Download with Fixed Handler
+   ├─ scan-results.vue uses fetch+blob download
+   ├─ No longer relies on broken UiButton as="a"
+   └─ Properly handles CSV/VPAT/PDF exports
+
+8. Report Generation (On-Demand)
    GET /reports/:scanId
 
    API generates/caches:
    ├─ HTML report with filters
    ├─ VPAT Word document
-   └─ CSV export
+   ├─ CSV export (with fallback for empty nodes)
+   └─ PDF export
 ```
 
 ### Via Web Dashboard VPAT Wizard
