@@ -131,11 +131,12 @@ FixSuggestion {
 }
 
 ScanResult {
-  scanType: 'browser' | 'static' | 'keyboard' | 'combined'
+  scanType: 'browser' | 'static' | 'keyboard' | 'combined' | 'site'
   violations: Violation[]
   passes: PassResult[]
   incomplete: IncompleteResult[]
   scannedCount: number        // Total pages/files scanned
+  conformanceStatus?: Record<string, ConformanceStatus>  // WCAG criterion → status
   timestamp: string
 }
 ```
@@ -160,19 +161,19 @@ ScanResult {
 
 **Routes**:
 - `GET/POST /projects` - Project CRUD
-- `POST /scans` - Initiate scan (accepts optional `authSessionId` for authenticated browsing)
-- `GET /scans/:id/sse` - Server-Sent Events (real-time progress)
+- `POST /scans` - Initiate scan (accepts `scanType`, `enableKeyboard`, `maxPages`, optional `authSessionId`)
+- `GET /scans/:id/sse` - Server-Sent Events (real-time progress + conformance updates)
 - `GET /scans/:id/issues` - Violations (reconstructs ViolationNode from DB columns)
 - `GET /screenshots/:filename` - Serve element screenshots with visual context
 - `POST /api/issues/:id/ai-fix` - Generate AI fix for violation
 - `GET /reports/:id` - Report generation (CSV exporter with fallback for empty nodes)
-- `GET /vpat/:id` - VPAT export
-- `POST /api/auth-session` - Create headed Playwright session for authenticated scanning [NEW]
-- `POST /api/auth-session/:id/capture` - Capture authenticated session storageState [NEW]
-- `DELETE /api/auth-session/:id` - Cleanup session and cached storageState [NEW]
+- `GET /vpat/:id` - VPAT export (conformance status per criterion)
+- `POST /api/auth-session` - Create headed Playwright session for authenticated scanning
+- `POST /api/auth-session/:id/capture` - Capture authenticated session storageState
+- `DELETE /api/auth-session/:id` - Cleanup session and cached storageState
 - Swagger UI at `/docs`
 
-**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes, AI-powered fixes, server-side popup authentication
+**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes, AI-powered fixes, server-side popup authentication, multi-page site scanning, keyboard testing, WCAG conformance scoring
 
 ---
 
@@ -180,7 +181,18 @@ ScanResult {
 
 **Tech**: Vue Composition API, Tailwind 4.2, shadcn-vue, Pinia, Vue Router, Lucide icons
 
-**Pages**: Projects, scans, issues, VPAT wizard, reports, issue-detail [NEW]
+**Pages**: Projects, scans, issues, VPAT wizard, reports, issue-detail, scan-results
+
+**Scan Form Features**:
+- Keyboard toggle (opt-in keyboard accessibility testing)
+- Scan type selector (browser | site)
+- Max pages limit input (for multi-page site crawl)
+- Requires login checkbox (for authenticated scanning)
+
+**Scan Results Features**:
+- Conformance status table (WCAG criterion → Supports/Partially Supports/Does Not Support)
+- Violation summary cards (Critical/Serious/Moderate/Minor counts)
+- Real-time progress tracking via SSE
 
 **Issue Detail Features**:
 - Rich HTML snippet viewer with syntax highlighting
@@ -191,7 +203,7 @@ ScanResult {
 - Related WCAG criteria links
 - FixViewer component displaying before/after code diff with confidence badge
 
-**Real-time**: SSE integration for live progress, violation counts, narrative streaming
+**Real-time**: SSE integration for live progress, violation counts, conformance scoring
 
 **Size**: 161KB JS → 56KB gzipped, 21KB CSS → 5KB gzipped (~61KB total)
 
@@ -211,17 +223,33 @@ URL input
 [page-crawler.ts]
     ├─ Fetch page content
     ├─ Wait for dynamic content
-    └─ AsyncGenerator for multi-page crawl
+    ├─ AsyncGenerator for multi-page crawl (scanType: 'site')
+    ├─ Configurable maxPages limit
+    └─ Crawl + merge results across pages
     ↓
 [axe-scanner.ts]
     ├─ Inject axe-core script
     ├─ Run axe on page
     └─ Return axe results
     ↓
-[result-normalizer.ts]
-    └─ Map axe format → ScanResult
+[keyboard-scanner.ts] (opt-in via enableKeyboard config)
+    ├─ Run keyboard accessibility tests
+    ├─ Tab sequence, focus traps, escape handlers
+    ├─ Skip links, heading hierarchy
+    └─ Return keyboardResult separately
     ↓
-ScanResult (violations, passes, incomplete)
+[result-normalizer.ts]
+    ├─ Map axe format → ScanResult
+    ├─ Merge keyboard results via mergeScanResults()
+    └─ Aggregate conformance via aggregateConformance()
+    ↓
+ScanResult (violations, passes, incomplete, conformanceStatus)
+    ↓
+[Conformance Scoring]
+    ├─ Compute WCAG criterion coverage per page
+    ├─ Weighted by severity (critical=4, serious=3, moderate=2, minor=1)
+    ├─ Store conformanceStatus in scans.config JSON
+    └─ Return ConformanceStatus['1.1.1', '2.4.3', ...] map
 ```
 
 **Config**:
@@ -233,6 +261,9 @@ interface ScanConfig {
   headers?: Record<string, string>;
   include?: string[];         // URL patterns to include
   exclude?: string[];         // URL patterns to exclude
+  enableKeyboard?: boolean;   // Run keyboard accessibility tests (opt-in)
+  maxPages?: number;          // For scanType: 'site', limit crawl depth
+  scanType?: 'browser' | 'site';  // 'browser' = single URL, 'site' = crawl + merge
 }
 ```
 
@@ -732,8 +763,10 @@ User (Web): Click "New Scan" → Optional: Toggle "Requires Login" → POST /sca
    Body: {
      projectId: 1,
      url: "https://example.com",
-     scanType: "browser",
-     authSessionId: "..." (optional, if authenticated)
+     scanType: "browser" | "site",      // 'site' enables multi-page crawl
+     enableKeyboard: true|false,        // Opt-in keyboard tests
+     maxPages: 10,                      // For scanType: 'site'
+     authSessionId: "..." (optional)    // For authenticated scanning
    }
 
 3. Fastify Route Handler
@@ -748,11 +781,19 @@ User (Web): Click "New Scan" → Optional: Toggle "Requires Login" → POST /sca
 4. Background Processing
    ├─ Spawn scanner (browser with optional restored auth state)
    ├─ Update scan.status='running'
+   ├─ If scanType: 'site':
+   │  ├─ Use scanSite() AsyncGenerator to crawl pages
+   │  └─ Merge results via mergeScanResults()
+   ├─ If enableKeyboard: true:
+   │  ├─ Run keyboard scanner in parallel
+   │  └─ Merge keyboardResult into main ScanResult
    ├─ For each page/file:
-   │  ├─ Notify SSE subscribers: { event: 'progress', ... }
-   │  ├─ If authSessionId: Apply storageState to Playwright context (cookies, auth)
+   │  ├─ Notify SSE subscribers: { event: 'progress', conformanceUpdate, ... }
+   │  ├─ If authSessionId: Apply storageState to Playwright context
    │  ├─ Enrich with rules engine
    │  └─ Call AI engine for fixes
+   ├─ Aggregate conformance status (aggregateConformance)
+   ├─ Store conformanceStatus in scans.config JSON
    ├─ Save all issues to database
    └─ Update scan.status='completed'
 

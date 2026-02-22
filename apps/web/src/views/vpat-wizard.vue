@@ -2,7 +2,7 @@
 // VPAT Generator wizard: select project → choose format → generate → download
 import { ref, onMounted } from 'vue';
 import { useProjectStore } from '../stores/project-store.js';
-import { apiPost, apiUrl } from '../composables/use-api.js';
+import { apiUrl } from '../composables/use-api.js';
 import VpatStepSelectProject from '../components/vpat-step-select-project.vue';
 import UiCard from '../components/ui/card.vue';
 import UiCardContent from '../components/ui/card-content.vue';
@@ -24,19 +24,30 @@ onMounted(() => { void projectStore.fetchProjects(); });
 function goNext(): void { step.value = Math.min(step.value + 1, 3); }
 function goBack(): void { step.value = Math.max(step.value - 1, 1); }
 
-interface VpatResponse { path?: string; url?: string }
-
+/** Download VPAT by fetching the binary/HTML response directly (not JSON) */
 async function handleGenerate(): Promise<void> {
   if (!selectedProjectId.value) return;
   generating.value = true;
   error.value = null;
   downloadPath.value = null;
   try {
-    const result = await apiPost<VpatResponse>('/vpat/generate', {
-      projectId: selectedProjectId.value,
-      format: selectedFormat.value,
+    const url = apiUrl('/vpat/generate');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        projectId: Number(selectedProjectId.value),
+        format: selectedFormat.value,
+      }),
     });
-    downloadPath.value = result.url ?? result.path ?? null;
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(body || res.statusText);
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    downloadPath.value = objectUrl;
     step.value = 3;
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to generate VPAT';
@@ -53,9 +64,8 @@ function reset(): void {
   error.value = null;
 }
 
-function resolvedDownloadUrl(): string {
-  if (!downloadPath.value) return '';
-  return downloadPath.value.startsWith('http') ? downloadPath.value : apiUrl(downloadPath.value);
+function downloadFileName(): string {
+  return `vpat-${selectedProjectId.value}.${selectedFormat.value}`;
 }
 </script>
 
@@ -141,9 +151,14 @@ function resolvedDownloadUrl(): string {
             VPAT document generated successfully.
           </p>
           <div class="my-4">
-            <UiButton v-if="downloadPath" as="a" :href="resolvedDownloadUrl()" download>
+            <a
+              v-if="downloadPath"
+              :href="downloadPath"
+              :download="downloadFileName()"
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
               ↓ Download {{ selectedFormat.toUpperCase() }}
-            </UiButton>
+            </a>
             <p v-else class="text-sm text-slate-500">No download link returned by server.</p>
           </div>
           <div class="flex gap-3 mt-5">

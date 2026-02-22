@@ -9,6 +9,22 @@ import type {
 import { impactToSeverity } from '@a11y-fixer/core';
 
 /**
+ * Convert axe WCAG tags (e.g. "wcag143", "wcag2a") to standard criterion IDs (e.g. "1.4.3").
+ * Filters out level tags like "wcag2a", "wcag2aa", "wcag2aaa" and non-wcag tags.
+ */
+function parseWcagCriteria(tags: string[]): string[] {
+  const criteria: string[] = [];
+  for (const tag of tags) {
+    // Match criterion tags like wcag111, wcag143, wcag2411
+    const match = tag.match(/^wcag(\d)(\d)(\d+)$/);
+    if (match) {
+      criteria.push(`${match[1]}.${match[2]}.${match[3]}`);
+    }
+  }
+  return criteria;
+}
+
+/**
  * Map a single axe NodeResult to ViolationNode.
  * Note: node.element is a DOM Element unavailable after page.evaluate serialization,
  * so element tag is extracted from the html snippet instead.
@@ -27,7 +43,7 @@ function normalizeNode(node: NodeResult): ViolationNode {
 function normalizeViolations(results: Result[], pageUrl: string): Violation[] {
   return results.map((result) => ({
     ruleId: result.id,
-    wcagCriteria: result.tags.filter((tag) => tag.startsWith('wcag')),
+    wcagCriteria: parseWcagCriteria(result.tags),
     severity: impactToSeverity(result.impact ?? undefined),
     description: result.description,
     helpUrl: result.helpUrl,
@@ -40,7 +56,7 @@ function normalizeViolations(results: Result[], pageUrl: string): Violation[] {
 function normalizePasses(results: Result[]): PassResult[] {
   return results.map((result) => ({
     ruleId: result.id,
-    wcagCriteria: result.tags.filter((tag) => tag.startsWith('wcag')),
+    wcagCriteria: parseWcagCriteria(result.tags),
     description: result.description,
     nodes: result.nodes.map(normalizeNode),
   }));
@@ -50,7 +66,7 @@ function normalizePasses(results: Result[]): PassResult[] {
 function normalizeIncomplete(results: Result[]): IncompleteResult[] {
   return results.map((result) => ({
     ruleId: result.id,
-    wcagCriteria: result.tags.filter((tag) => tag.startsWith('wcag')),
+    wcagCriteria: parseWcagCriteria(result.tags),
     description: result.description,
     nodes: result.nodes.map(normalizeNode),
     reason: result.nodes[0]?.failureSummary,

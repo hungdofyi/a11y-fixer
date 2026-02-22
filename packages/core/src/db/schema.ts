@@ -11,7 +11,7 @@ export const projects = sqliteTable('projects', {
 export const scans = sqliteTable('scans', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   projectId: integer('project_id').notNull().references(() => projects.id),
-  scanType: text('scan_type').notNull(), // browser | static | keyboard | combined
+  scanType: text('scan_type').notNull(), // browser | static | keyboard | combined | site
   status: text('status').notNull().default('pending'), // pending | running | completed | failed
   config: text('config'), // JSON string of scan configuration
   startedAt: text('started_at'),

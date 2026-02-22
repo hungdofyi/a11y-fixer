@@ -3,6 +3,7 @@
 import { toRef } from 'vue';
 import type { Issue } from '../stores/scan-store.js';
 import { useIssueTable } from '../composables/use-issue-table.js';
+import { formatWcagCriteria } from '../utils/wcag-link-builder.js';
 import SeverityBadge from './severity-badge.vue';
 import UiTable from './ui/table.vue';
 import UiTableHeader from './ui/table-header.vue';
@@ -109,7 +110,7 @@ const {
           @keydown.space.prevent="emit('select', issue)"
         >
           <UiTableCell><code class="text-xs font-mono bg-slate-100 px-1.5 py-0.5 rounded">{{ issue.ruleId }}</code></UiTableCell>
-          <UiTableCell>{{ issue.wcagCriteria }}</UiTableCell>
+          <UiTableCell>{{ formatWcagCriteria(issue.wcagCriteria) }}</UiTableCell>
           <UiTableCell><SeverityBadge :severity="issue.severity" /></UiTableCell>
           <UiTableCell class="max-w-[280px]">{{ issue.description }}</UiTableCell>
           <UiTableCell class="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-xs text-slate-500" :title="issue.pageUrl">

@@ -10,6 +10,7 @@ import {
 } from './browser/index.js';
 import type { BrowserScanConfig } from './browser/index.js';
 import type { ScreenshotResult } from './browser/index.js';
+import { scanKeyboard } from './keyboard/index.js';
 
 export type { BrowserScanConfig } from './browser/index.js';
 export type { ScreenshotResult } from './browser/index.js';
@@ -29,9 +30,11 @@ export * from './static/index.js';
 // Keyboard & focus testing exports
 export * from './keyboard/index.js';
 
-/** Extended scan result with optional screenshot paths */
+/** Extended scan result with optional screenshot paths and keyboard results */
 export interface ScanUrlResult extends ScanResult {
   screenshotResults?: ScreenshotResult[];
+  /** Keyboard scan result when enableKeyboard is true — caller merges via mergeScanResults */
+  keyboardResult?: ScanResult;
 }
 
 /**
@@ -74,6 +77,12 @@ export async function scanUrl(
       );
     }
 
+    // Optionally run keyboard & focus testing on the same page (after axe + screenshots)
+    let keyboardResult: ScanResult | undefined;
+    if (mergedConfig.enableKeyboard) {
+      keyboardResult = await scanKeyboard(page, {});
+    }
+
     await context.close();
 
     return {
@@ -82,6 +91,7 @@ export async function scanUrl(
       scannedCount: 1,
       ...normalized,
       screenshotResults,
+      keyboardResult,
     };
   } finally {
     await closeBrowser(browser);

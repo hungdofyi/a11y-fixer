@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Inline form for triggering a new scan — scan type selector + URL input + auth flow
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useScanStore } from '../stores/scan-store.js';
 import UiCard from './ui/card.vue';
 import UiCardHeader from './ui/card-header.vue';
@@ -11,19 +11,25 @@ import UiInput from './ui/input.vue';
 import UiSelect from './ui/select.vue';
 
 const emit = defineEmits<{
-  (e: 'submit', payload: { scanType: string; url: string; authSessionId?: string }): void;
+  (e: 'submit', payload: { scanType: string; url: string; authSessionId?: string; enableKeyboard?: boolean }): void;
   (e: 'cancel'): void;
 }>();
 
 const scanStore = useScanStore();
 
-const SCAN_TYPES = ['browser', 'static', 'keyboard', 'combined'];
+const SCAN_TYPES = ['browser', 'static', 'site'];
 const scanType = ref('browser');
 const scanUrl = ref('');
 const requiresLogin = ref(false);
+const enableKeyboard = ref(false);
 const authStep = ref<'idle' | 'logging-in' | 'capturing'>('idle');
 
 const props = defineProps<{ submitting?: boolean; error?: string | null; defaultUrl?: string }>();
+
+// Reset keyboard toggle when switching away from browser (keyboard not supported for other types)
+watch(scanType, (val) => {
+  if (val !== 'browser') enableKeyboard.value = false;
+});
 
 // Pre-fill URL from project
 if (props.defaultUrl && !scanUrl.value) {
@@ -42,7 +48,7 @@ async function handleDoneLogin(): Promise<void> {
   authStep.value = 'capturing';
   const authSessionId = await scanStore.captureAuthSession();
   if (authSessionId) {
-    emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), authSessionId });
+    emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), authSessionId, enableKeyboard: enableKeyboard.value || undefined });
     authStep.value = 'idle';
     requiresLogin.value = false;
   } else {
@@ -61,7 +67,7 @@ function handleSubmit(): void {
     void handleLoginClick();
     return;
   }
-  emit('submit', { scanType: scanType.value, url: scanUrl.value.trim() });
+  emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), enableKeyboard: enableKeyboard.value || undefined });
 }
 </script>
 
@@ -87,8 +93,8 @@ function handleSubmit(): void {
           </div>
         </div>
 
-        <!-- Requires Login toggle — only for browser scan type -->
-        <div v-if="scanType === 'browser'" class="mb-4">
+        <!-- Requires Login toggle — only for browser/site scan types -->
+        <div v-if="scanType === 'browser' || scanType === 'site'" class="mb-4 flex flex-wrap gap-6">
           <label class="inline-flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -98,10 +104,19 @@ function handleSubmit(): void {
             />
             <span class="text-sm font-medium text-slate-700">Requires Login</span>
           </label>
+          <!-- Keyboard testing toggle — only for browser scans (not site) -->
+          <label v-if="scanType === 'browser'" class="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="enableKeyboard"
+              class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span class="text-sm font-medium text-slate-700">Enable Keyboard Testing</span>
+          </label>
         </div>
 
         <!-- Auth flow states -->
-        <div v-if="requiresLogin && scanType === 'browser' && authStep === 'logging-in'" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div v-if="requiresLogin && (scanType === 'browser' || scanType === 'site') && authStep === 'logging-in'" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p class="text-sm font-medium text-blue-800 mb-2">A browser window has opened on your computer — log in to the site, then click "Done, Start Scan".</p>
           <div class="flex gap-3">
             <UiButton type="button" @click="handleDoneLogin" :disabled="scanStore.authSessionLoading">

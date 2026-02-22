@@ -38,7 +38,7 @@ export interface IncompleteResult {
   reason?: string;
 }
 
-export type ScanType = 'browser' | 'static' | 'keyboard' | 'combined';
+export type ScanType = 'browser' | 'static' | 'keyboard' | 'combined' | 'site';
 
 /** Unified scan result from any scanner module */
 export interface ScanResult {

@@ -12,6 +12,7 @@ export interface Scan {
   startedAt: string;
   completedAt?: string;
   violationCount?: number;
+  config?: string;
 }
 
 export interface Issue {
@@ -36,6 +37,8 @@ export interface TriggerScanInput {
   scanType: string;
   url: string;
   authSessionId?: string;
+  enableKeyboard?: boolean;
+  maxPages?: number;
 }
 
 export interface IssuesPage {

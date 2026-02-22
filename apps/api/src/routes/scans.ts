@@ -3,8 +3,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import { scans, issues, projects } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
-import { scanUrl, scanFiles } from '@a11y-fixer/scanner';
+import { scanUrl, scanFiles, scanSite } from '@a11y-fixer/scanner';
 import type { ScreenshotResult } from '@a11y-fixer/scanner';
+import { aggregateConformance, mergeScanResults } from '@a11y-fixer/rules-engine';
 import { isPublicUrl } from '../utils/is-public-url.js';
 import { resolveStorageStatePath, cleanupCapturedPath } from './auth-session.js';
 
@@ -20,7 +21,15 @@ function isSafePath(dir: string): boolean {
 const scansRoutes: FastifyPluginAsync = async (fastify) => {
   // POST / - trigger a new scan
   fastify.post<{
-    Body: { projectId: number; scanType: 'browser' | 'static'; url?: string; dir?: string; authSessionId?: string };
+    Body: {
+      projectId: number;
+      scanType: 'browser' | 'static' | 'site';
+      url?: string;
+      dir?: string;
+      authSessionId?: string;
+      enableKeyboard?: boolean;
+      maxPages?: number;
+    };
   }>(
     '/',
     {
@@ -30,10 +39,12 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
           required: ['projectId', 'scanType'],
           properties: {
             projectId: { type: 'number' },
-            scanType: { type: 'string', enum: ['browser', 'static'] },
+            scanType: { type: 'string', enum: ['browser', 'static', 'site'] },
             url: { type: 'string' },
             dir: { type: 'string' },
             authSessionId: { type: 'string' },
+            enableKeyboard: { type: 'boolean' },
+            maxPages: { type: 'number', minimum: 1, maximum: 100 },
           },
         },
       },
@@ -60,7 +71,10 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       const url = req.body.url || project.url || undefined;
 
       // Validate URL/dir inputs
-      if (scanType === 'browser' && url && !isPublicUrl(url)) {
+      if (scanType === 'site' && !url) {
+        return reply.code(400).send({ error: 'URL is required for site scans.' });
+      }
+      if ((scanType === 'browser' || scanType === 'site') && url && !isPublicUrl(url)) {
         return reply.code(400).send({ error: 'Invalid URL. Only public HTTP(S) URLs allowed.' });
       }
       if (scanType === 'static' && dir && !isSafePath(dir)) {
@@ -81,8 +95,9 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       const scanId = scan!.id;
 
       // Run scan in background
+      const { enableKeyboard, maxPages } = req.body;
       setImmediate(() => {
-        runScanBackground(fastify.db, scanId, scanType, url, dir, storageStatePath, authSessionId).catch((err: unknown) => {
+        runScanBackground(fastify.db, scanId, scanType, url, dir, storageStatePath, authSessionId, { enableKeyboard, maxPages }).catch((err: unknown) => {
           fastify.log.error({ err, scanId }, 'Background scan failed');
         });
       });
@@ -110,11 +125,12 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
 async function runScanBackground(
   db: ReturnType<typeof import('@a11y-fixer/core').createDb>,
   scanId: number,
-  scanType: 'browser' | 'static',
+  scanType: 'browser' | 'static' | 'site',
   url?: string,
   dir?: string,
   storageStatePath?: string,
   authSessionId?: string,
+  opts: { enableKeyboard?: boolean; maxPages?: number } = {},
 ): Promise<void> {
   try {
     let violations: Violation[] = [];
@@ -127,11 +143,33 @@ async function runScanBackground(
         captureScreenshots: true,
         scanId,
         dataDir,
+        enableKeyboard: opts.enableKeyboard,
         ...(storageStatePath ? { storageState: storageStatePath } : {}),
       });
-      violations = result.violations;
-      scannedCount = result.scannedCount;
+      // If keyboard scan was enabled, merge axe + keyboard results
+      if (result.keyboardResult) {
+        const merged = mergeScanResults([result, result.keyboardResult]);
+        violations = merged.violations;
+        scannedCount = merged.scannedCount;
+      } else {
+        violations = result.violations;
+        scannedCount = result.scannedCount;
+      }
       screenshotResults = result.screenshotResults ?? [];
+    } else if (scanType === 'site' && url) {
+      // Multi-page site scan: crawl + scan pages, merge all results
+      const pageResults: import('@a11y-fixer/core').ScanResult[] = [];
+      for await (const pageResult of scanSite(url, {
+        maxPages: opts.maxPages ?? 10,
+        ...(storageStatePath ? { storageState: storageStatePath } : {}),
+      })) {
+        pageResults.push(pageResult);
+      }
+      if (pageResults.length > 0) {
+        const merged = mergeScanResults(pageResults);
+        violations = merged.violations;
+        scannedCount = merged.scannedCount;
+      }
     } else if (scanType === 'static' && dir) {
       const result = await scanFiles(dir);
       violations = result.violations;
@@ -197,12 +235,25 @@ async function runScanBackground(
       await db.insert(issues).values(issueRows);
     }
 
+    // Compute conformance scores from violations
+    const conformanceInput: import('@a11y-fixer/core').ScanResult = {
+      scanType: scanType as import('@a11y-fixer/core').ScanResult['scanType'],
+      timestamp: new Date().toISOString(),
+      violations,
+      passes: [],
+      incomplete: [],
+      scannedCount,
+    };
+    const conformance = aggregateConformance([conformanceInput])
+      .map(({ violations: _v, ...rest }) => rest);
+
     await db
       .update(scans)
       .set({
         status: 'completed',
         completedAt: new Date().toISOString(),
         totalPages: scannedCount,
+        config: JSON.stringify({ conformance }),
       })
       .where(eq(scans.id, scanId));
   } catch (err) {

@@ -6,6 +6,8 @@ import { useScanStore } from '../stores/scan-store.js';
 import { apiUrl } from '../composables/use-api.js';
 import ScanSummaryCard from '../components/scan-summary-card.vue';
 import IssueTable from '../components/issue-table.vue';
+import ConformanceTable from '../components/conformance-table.vue';
+import type { CriterionScore } from '../components/conformance-table.vue';
 import UiButton from '../components/ui/button.vue';
 import type { Issue } from '../stores/scan-store.js';
 
@@ -31,6 +33,16 @@ const countBySeverity = computed(() => {
 });
 
 const SEVERITIES = ['critical', 'serious', 'moderate', 'minor'] as const;
+
+const conformanceScores = computed<CriterionScore[]>(() => {
+  if (!store.currentScan?.config) return [];
+  try {
+    const parsed = JSON.parse(store.currentScan.config) as { conformance?: CriterionScore[] };
+    return parsed.conformance ?? [];
+  } catch {
+    return [];
+  }
+});
 
 /** Download report via fetch + blob to handle cross-origin correctly */
 async function downloadReport(format: 'html' | 'csv'): Promise<void> {
@@ -95,6 +107,12 @@ function formatDate(iso?: string): string {
         :severity="sev"
         :count="countBySeverity[sev]"
       />
+    </section>
+
+    <section v-if="conformanceScores.length" class="mb-8" aria-label="WCAG Conformance">
+      <h2 class="text-lg font-semibold text-slate-900 mb-1">WCAG Conformance</h2>
+      <p class="text-sm text-slate-500 mb-3">How this page performs against WCAG 2.1 accessibility criteria. "Fail" means automated issues were found; "Partial" means some issues detected but low impact.</p>
+      <ConformanceTable :conformance="conformanceScores" />
     </section>
 
     <section class="mt-4" aria-label="Issue list">

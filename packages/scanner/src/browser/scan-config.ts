@@ -27,4 +27,6 @@ export interface BrowserScanConfig {
   captureScreenshots?: boolean;
   /** Max screenshots per scan (default: 50) */
   maxScreenshots?: number;
+  /** Enable keyboard & focus testing after axe scan (default: false) */
+  enableKeyboard?: boolean;
 }
