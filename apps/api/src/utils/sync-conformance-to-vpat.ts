@@ -46,6 +46,39 @@ function buildEvidence(scanId: number, score: CriterionScore): VpatEvidence[] {
   }];
 }
 
+/** Conformance severity order: worst status wins when merging shared standard IDs */
+const STATUS_SEVERITY: Record<ConformanceStatus, number> = {
+  [ConformanceStatus.DoesNotSupport]: 3,
+  [ConformanceStatus.PartiallySupports]: 2,
+  [ConformanceStatus.NotEvaluated]: 1,
+  [ConformanceStatus.NotApplicable]: 0,
+  [ConformanceStatus.Supports]: 0,
+};
+
+/** Merge a standard entry, keeping the worst conformance status across shared IDs */
+function mergeStandardEntry(
+  map: Map<string, { status: ConformanceStatus; remarks: string[]; evidence: VpatEvidence[] }>,
+  key: string,
+  status: ConformanceStatus,
+  remarks: string,
+  evidence: VpatEvidence[],
+): void {
+  const existing = map.get(key);
+  if (!existing) {
+    map.set(key, { status, remarks: [remarks], evidence: [...evidence] });
+    return;
+  }
+  // Keep worst status
+  if (STATUS_SEVERITY[status] > STATUS_SEVERITY[existing.status]) {
+    existing.status = status;
+  }
+  // Avoid duplicate remarks
+  if (!existing.remarks.includes(remarks)) {
+    existing.remarks.push(remarks);
+  }
+  existing.evidence.push(...evidence);
+}
+
 /**
  * Sync conformance scores to vpatEntries table.
  * Deletes existing entries for the project, then inserts fresh rows
@@ -65,17 +98,18 @@ export async function syncConformanceToVpat(
   const rows: VpatInsert[] = [];
   const now = new Date().toISOString();
 
+  // Track worst status per standard+criterionId (for shared IDs like section508:501.1)
+  const standardEntries = new Map<string, { status: ConformanceStatus; remarks: string[]; evidence: VpatEvidence[] }>();
+
   for (const criterion of WCAG_CRITERIA_MAP) {
     const score = scoreMap.get(criterion.id);
     const status = score?.status ?? ConformanceStatus.NotEvaluated;
     const remarks = score
       ? buildRemarks(score)
       : 'Not evaluated by automated scan.';
-    const evidence = score
-      ? JSON.stringify(buildEvidence(scanId, score))
-      : JSON.stringify([{ source: 'automated', description: `Scan #${scanId}`, scanId: String(scanId), ruleIds: [] }]);
+    const evidence = score ? buildEvidence(scanId, score) : [];
 
-    // WCAG entry
+    // WCAG entry (always 1:1, no dedup needed)
     rows.push({
       projectId,
       scanId,
@@ -83,38 +117,46 @@ export async function syncConformanceToVpat(
       standard: 'wcag',
       conformanceStatus: status,
       remarks,
-      evidence,
+      evidence: JSON.stringify(score ? evidence : [{ source: 'automated', description: `Scan #${scanId}`, scanId: String(scanId), ruleIds: [] }]),
       updatedAt: now,
     });
 
-    // Section 508 + EN 301 549 entries
+    // Accumulate Section 508 + EN 301 549 entries (may share IDs across WCAG criteria)
     const mapping = getStandardMapping(criterion.id);
     if (mapping) {
       for (const s508Id of mapping.section508Ids) {
-        rows.push({
-          projectId,
-          scanId,
-          criterionId: s508Id,
-          standard: 'section508',
-          conformanceStatus: status,
-          remarks,
-          evidence,
-          updatedAt: now,
-        });
+        mergeStandardEntry(standardEntries, `section508:${s508Id}`, status, remarks, evidence);
       }
       for (const enId of mapping.en301549Ids) {
-        rows.push({
-          projectId,
-          scanId,
-          criterionId: enId,
-          standard: 'en301549',
-          conformanceStatus: status,
-          remarks,
-          evidence,
-          updatedAt: now,
-        });
+        mergeStandardEntry(standardEntries, `en301549:${enId}`, status, remarks, evidence);
       }
     }
+  }
+
+  // Convert deduplicated standard entries to rows, summarizing remarks for shared IDs
+  for (const [key, entry] of standardEntries) {
+    const [standard, criterionId] = key.split(':') as [string, string];
+    // For shared IDs with many remarks (e.g. 501.1), summarize instead of listing all
+    let remarks: string;
+    if (entry.remarks.length <= 3) {
+      remarks = entry.remarks.join(' ');
+    } else {
+      const withIssues = entry.remarks.filter((r) => r.includes('issue(s)'));
+      const summary = withIssues.length > 0
+        ? `${withIssues.length} of ${entry.remarks.length} mapped criteria have issues.`
+        : `${entry.remarks.length} mapped criteria evaluated.`;
+      remarks = `${entry.status}. ${summary}`;
+    }
+    rows.push({
+      projectId,
+      scanId,
+      criterionId,
+      standard,
+      conformanceStatus: entry.status,
+      remarks,
+      evidence: JSON.stringify(entry.evidence),
+      updatedAt: now,
+    });
   }
 
   // Atomic delete + insert in transaction

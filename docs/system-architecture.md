@@ -583,6 +583,16 @@ interface OAuthToken {
     │   ├─ renderVpatDocx() → Word .docx (using docx library)
     │   └─ renderVpatHtml() → Accessible HTML
     └─ Return {docx: Buffer, html: string}
+
+[syncConformanceToVpat()] [NEW]
+    ├─ Input: projectId, scanId, CriterionScore[]
+    ├─ Index scores by wcagId for fast lookup
+    ├─ For each WCAG criterion:
+    │   ├─ buildRemarks() → severity breakdown summary
+    │   ├─ buildEvidence() → array with source='automated', scanId, ruleIds
+    │   └─ Create vpatEntries for wcag + section508 + en301549 standards
+    ├─ Atomic transaction: delete existing entries, insert fresh rows in batches
+    └─ Non-blocking: sync errors logged but don't stop scan completion
 ```
 
 ### Scan Report Generation
@@ -792,8 +802,10 @@ User (Web): Click "New Scan" → Optional: Toggle "Requires Login" → POST /sca
    │  ├─ If authSessionId: Apply storageState to Playwright context
    │  ├─ Enrich with rules engine
    │  └─ Call AI engine for fixes
-   ├─ Aggregate conformance status (aggregateConformance)
-   ├─ Store conformanceStatus in scans.config JSON
+   ├─ Aggregate conformance status (aggregateConformance → CriterionScore[])
+   ├─ Sync conformance to vpatEntries (syncConformanceToVpat) [NEW]
+   │  └─ Populates vpatEntries with real conformance data (non-blocking)
+   ├─ Store conformanceStatus in scans.config JSON (strip violations)
    ├─ Save all issues to database
    └─ Update scan.status='completed'
 

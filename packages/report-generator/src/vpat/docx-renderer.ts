@@ -8,7 +8,6 @@ import {
   WidthType,
   HeadingLevel,
   AlignmentType,
-  BorderStyle,
   Packer,
 } from 'docx';
 import type { VpatEntry, ConformanceStatus } from '@a11y-fixer/core';
@@ -46,9 +45,15 @@ export async function renderVpatDocx(
 
   children.push(new Paragraph({ text: '' }));
 
-  // Sections with tables
+  // Sections with tables, grouped by standard
+  let lastGroup = '';
   for (const section of sections) {
-    children.push(new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_2 }));
+    // Emit group header when group changes
+    if (section.group !== lastGroup) {
+      lastGroup = section.group;
+      children.push(new Paragraph({ text: section.group, heading: HeadingLevel.HEADING_2 }));
+    }
+    children.push(new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_3 }));
 
     const headerRow = new TableRow({
       children: ['Criteria', 'Conformance Level', 'Remarks and Explanations'].map(
@@ -62,7 +67,7 @@ export async function renderVpatDocx(
     const dataRows = section.criteria.map((criterion) => {
       const entry = entries.get(`${section.standard}:${criterion.id}`);
       const status = entry?.conformanceStatus || 'Not Evaluated';
-      const remarks = entry?.remarks || '';
+      const remarks = entry?.remarks || (status === 'Not Evaluated' ? 'Not evaluated by automated scan.' : '');
 
       return new TableRow({
         children: [

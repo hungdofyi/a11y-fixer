@@ -6,6 +6,18 @@ All notable changes to a11y-fixer are documented here.
 
 ### Features Added
 
+#### VPAT Conformance Data Persistence
+- Created `sync-conformance-to-vpat.ts` utility to map CriterionScore[] to vpatEntries rows
+- Integrated into scan pipeline: `syncConformanceToVpat()` called after conformance aggregation
+- VPAT reports now display real conformance data (Supports/Partially/Does Not Support) from scan results
+- vpatEntries table automatically populated with:
+  - Conformance status per WCAG criterion
+  - Remarks summarizing violations (severity breakdown)
+  - Evidence linking to scan ID and rule IDs
+  - Multi-standard entries (WCAG + Section 508 + EN 301 549)
+- Criteria without violations marked as "Not evaluated by automated scan"
+- Non-blocking on failure: sync errors logged but don't halt scan completion
+
 #### Keyboard Scanning Integration
 - Wired keyboard scanning as opt-in feature (via `enableKeyboard` config)
 - Keyboard tests now run in parallel with browser scanner
