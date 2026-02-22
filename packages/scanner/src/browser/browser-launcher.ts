@@ -17,18 +17,36 @@ export async function launchBrowser(options?: { headless?: boolean }): Promise<B
   return browser;
 }
 
+/** Options for creating an authenticated browser context */
+export interface ContextOptions {
+  viewport?: ViewportSize;
+  /** Path to Playwright storageState JSON for authenticated sessions */
+  storageState?: string;
+}
+
 /**
- * Create a browser context with optional viewport configuration.
+ * Create a browser context with optional viewport and authentication state.
  * Each context is isolated (cookies, local storage, etc.).
  */
 export async function createContext(
   browser: Browser,
-  viewport?: ViewportSize,
+  viewportOrOptions?: ViewportSize | ContextOptions,
 ): Promise<BrowserContext> {
+  // Support both old (ViewportSize) and new (ContextOptions) signatures
+  let viewport: ViewportSize | undefined;
+  let storageState: string | undefined;
+
+  if (viewportOrOptions && 'storageState' in viewportOrOptions) {
+    viewport = (viewportOrOptions as ContextOptions).viewport;
+    storageState = (viewportOrOptions as ContextOptions).storageState;
+  } else {
+    viewport = viewportOrOptions as ViewportSize | undefined;
+  }
+
   const context = await browser.newContext({
     viewport: viewport ?? { width: 1280, height: 720 },
-    // Ignore HTTPS errors to support scanning staging/dev environments
     ignoreHTTPSErrors: true,
+    ...(storageState ? { storageState } : {}),
   });
   return context;
 }

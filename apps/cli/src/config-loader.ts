@@ -12,6 +12,8 @@ export interface A11yConfig {
     concurrency?: number;
     timeout?: number;
   };
+  /** Path to Playwright storageState JSON for authenticated scanning */
+  storageState?: string;
   dbPath?: string;
 }
 

@@ -8,20 +8,24 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "fastify": "^4.28.0",
+    "@a11y-fixer/ai-engine": "workspace:*",
+    "@a11y-fixer/core": "workspace:*",
+    "@a11y-fixer/report-generator": "workspace:*",
+    "@a11y-fixer/rules-engine": "workspace:*",
+    "@a11y-fixer/scanner": "workspace:*",
+    "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^9.0.0",
+    "@fastify/oauth2": "^8.2.0",
+    "@fastify/secure-session": "^8.3.0",
+    "@fastify/static": "^9.0.0",
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^4.1.0",
-    "@a11y-fixer/core": "workspace:*",
-    "@a11y-fixer/scanner": "workspace:*",
-    "@a11y-fixer/rules-engine": "workspace:*",
-    "@a11y-fixer/ai-engine": "workspace:*",
-    "@a11y-fixer/report-generator": "workspace:*",
-    "drizzle-orm": "^0.38.0"
+    "drizzle-orm": "^0.38.0",
+    "fastify": "^4.28.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.7.0"
   }
 }

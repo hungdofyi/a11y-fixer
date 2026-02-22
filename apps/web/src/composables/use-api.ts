@@ -26,6 +26,14 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    // If OAuth is enabled and we get 401, redirect to Google login
+    const data = await res.json().catch(() => ({})) as { loginUrl?: string };
+    if (data.loginUrl && data.loginUrl.startsWith('/')) {
+      window.location.href = data.loginUrl;
+      throw new ApiError(401, 'Redirecting to login...');
+    }
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text);

@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 
 /** Routes that skip API key authentication */
-const PUBLIC_PREFIXES = ['/health', '/documentation', '/swagger'];
+const PUBLIC_PREFIXES = ['/health', '/documentation', '/swagger', '/auth/'];
 
 /** Timing-safe string comparison to prevent timing attacks */
 function safeCompare(a: string, b: string): boolean {
@@ -29,10 +29,13 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     if (!apiKey) return;
 
     const provided = request.headers['x-api-key'];
+    // No API key header → not a CLI/API client, let OAuth plugin handle auth
+    if (!provided) return;
+    // API key present but invalid → reject
     if (typeof provided !== 'string' || !safeCompare(provided, apiKey)) {
       reply
         .code(401)
-        .send({ error: 'Unauthorized', message: 'Invalid or missing x-api-key header' });
+        .send({ error: 'Unauthorized', message: 'Invalid x-api-key header' });
     }
   });
 };

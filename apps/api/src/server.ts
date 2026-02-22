@@ -3,7 +3,9 @@ import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import authPlugin from './plugins/auth.js';
+import oauthSsoPlugin from './plugins/oauth.js';
 import dbPlugin from './plugins/db.js';
+import staticFilesPlugin from './plugins/static-files.js';
 import projectsRoutes from './routes/projects.js';
 import scansRoutes from './routes/scans.js';
 import issuesRoutes from './routes/issues.js';
@@ -15,7 +17,12 @@ import sseRoutes from './routes/sse.js';
 export async function buildApp() {
   const fastify = Fastify({ logger: true });
 
-  await fastify.register(cors, { origin: true });
+  await fastify.register(cors, {
+    origin: process.env['NODE_ENV'] === 'production'
+      ? (process.env['BASE_URL'] ?? false)
+      : true,
+    credentials: true,
+  });
 
   await fastify.register(swagger, {
     openapi: {
@@ -35,6 +42,7 @@ export async function buildApp() {
   });
 
   await fastify.register(authPlugin);
+  await fastify.register(oauthSsoPlugin);
   await fastify.register(dbPlugin);
 
   // Health check (public)
@@ -47,6 +55,9 @@ export async function buildApp() {
   await fastify.register(reportsRoutes, { prefix: '/api/reports' });
   await fastify.register(vpatRoutes, { prefix: '/api/vpat' });
   await fastify.register(sseRoutes, { prefix: '/api/sse' });
+
+  // Serve Vue SPA static files (production only — skipped if dist not found)
+  await fastify.register(staticFilesPlugin);
 
   return fastify;
 }

@@ -42,7 +42,10 @@ export async function scanUrl(
 
   const browser = await launchBrowser();
   try {
-    const context = await createContext(browser, mergedConfig.viewport);
+    const contextOpts = mergedConfig.storageState
+      ? { viewport: mergedConfig.viewport, storageState: mergedConfig.storageState }
+      : mergedConfig.viewport;
+    const context = await createContext(browser, contextOpts);
     const page = await context.newPage();
 
     const axeResults = await scanPage(page, mergedConfig);
@@ -84,7 +87,10 @@ export async function* scanSite(
 
   const browser = await launchBrowser();
   try {
-    const context = await createContext(browser, mergedConfig.viewport);
+    const contextOpts = mergedConfig.storageState
+      ? { viewport: mergedConfig.viewport, storageState: mergedConfig.storageState }
+      : mergedConfig.viewport;
+    const context = await createContext(browser, contextOpts);
 
     // Collect URLs from crawler up to maxPages
     const urlQueue: string[] = [];

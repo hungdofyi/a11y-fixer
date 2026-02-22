@@ -21,4 +21,6 @@ export interface BrowserScanConfig {
   concurrency?: number;
   /** Strategy to determine when page is ready for scanning */
   waitStrategy?: 'load' | 'networkidle' | 'domcontentloaded';
+  /** Path to Playwright storageState JSON file for authenticated scanning */
+  storageState?: string;
 }

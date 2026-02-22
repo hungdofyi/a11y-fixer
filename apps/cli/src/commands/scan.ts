@@ -4,6 +4,8 @@ import { createSpinner } from '../utils/progress.js';
 import { formatViolationsTable } from '../formatters/table-formatter.js';
 import { formatJson } from '../formatters/json-formatter.js';
 import { formatScanSummary } from '../formatters/summary-formatter.js';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { ScanResult } from '@a11y-fixer/core';
 
 export default class Scan extends BaseCommand {
@@ -26,6 +28,9 @@ export default class Scan extends BaseCommand {
       default: 'aa',
     }),
     pages: Flags.integer({ description: 'Max pages to crawl', default: 10 }),
+    'storage-state': Flags.string({
+      description: 'Path to Playwright storageState JSON for authenticated scanning',
+    }),
   };
 
   async run(): Promise<void> {
@@ -35,6 +40,11 @@ export default class Scan extends BaseCommand {
     const scanType = flags.type;
     const results: ScanResult[] = [];
 
+    // Validate storage-state file exists before scanning
+    if (flags['storage-state'] && !existsSync(resolve(flags['storage-state']))) {
+      this.error(`Storage state file not found: ${flags['storage-state']}`);
+    }
+
     if (isUrl && (scanType === 'browser' || scanType === 'all')) {
       const spinner = createSpinner('Running browser scan...');
       spinner.start();
@@ -43,6 +53,7 @@ export default class Scan extends BaseCommand {
         const result = await scanUrl(target, {
           wcagLevel: flags['wcag-level'] as 'a' | 'aa' | 'aaa',
           maxPages: flags.pages,
+          storageState: flags['storage-state'],
         });
         results.push(result);
         spinner.succeed(`Browser scan: ${result.violations.length} violations`);
@@ -68,9 +79,12 @@ export default class Scan extends BaseCommand {
       const spinner = createSpinner('Running keyboard tests...');
       spinner.start();
       try {
-        const { scanUrl, scanKeyboard, launchBrowser, createContext } = await import('@a11y-fixer/scanner');
+        const { scanKeyboard, launchBrowser, createContext } = await import('@a11y-fixer/scanner');
         const browser = await launchBrowser();
-        const ctx = await createContext(browser);
+        const ctxOpts = flags['storage-state']
+          ? { storageState: flags['storage-state'] }
+          : undefined;
+        const ctx = await createContext(browser, ctxOpts);
         const page = await ctx.newPage();
         await page.goto(target, { waitUntil: 'networkidle' });
         const result = await scanKeyboard(page);
