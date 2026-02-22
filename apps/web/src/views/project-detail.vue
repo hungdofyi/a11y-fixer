@@ -49,7 +49,7 @@ onMounted(async () => {
   if (running) watchScanProgress(running.id);
 });
 
-async function handleScanSubmit(payload: { scanType: string; url: string; authSessionId?: string; enableKeyboard?: boolean }): Promise<void> {
+async function handleScanSubmit(payload: { scanType: string; url: string; authSessionId?: string; enableKeyboard?: boolean; enableScreenshots?: boolean }): Promise<void> {
   submitting.value = true;
   const scan = await scanStore.triggerScan({
     projectId: projectId.value,
@@ -57,6 +57,7 @@ async function handleScanSubmit(payload: { scanType: string; url: string; authSe
     url: payload.url,
     ...(payload.authSessionId ? { authSessionId: payload.authSessionId } : {}),
     ...(payload.enableKeyboard ? { enableKeyboard: true } : {}),
+    ...(payload.enableScreenshots ? { enableScreenshots: true } : {}),
   });
   submitting.value = false;
   if (scan) {

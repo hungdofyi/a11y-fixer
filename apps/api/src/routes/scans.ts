@@ -29,6 +29,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       dir?: string;
       authSessionId?: string;
       enableKeyboard?: boolean;
+      enableScreenshots?: boolean;
       maxPages?: number;
     };
   }>(
@@ -45,6 +46,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
             dir: { type: 'string' },
             authSessionId: { type: 'string' },
             enableKeyboard: { type: 'boolean' },
+            enableScreenshots: { type: 'boolean' },
             maxPages: { type: 'number', minimum: 1, maximum: 100 },
           },
         },
@@ -96,9 +98,9 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       const scanId = scan!.id;
 
       // Run scan in background
-      const { enableKeyboard, maxPages } = req.body;
+      const { enableKeyboard, enableScreenshots, maxPages } = req.body;
       setImmediate(() => {
-        runScanBackground(fastify.db, scanId, projectId, scanType, url, dir, storageStatePath, authSessionId, { enableKeyboard, maxPages }).catch((err: unknown) => {
+        runScanBackground(fastify.db, scanId, projectId, scanType, url, dir, storageStatePath, authSessionId, { enableKeyboard, enableScreenshots, maxPages }).catch((err: unknown) => {
           fastify.log.error({ err, scanId }, 'Background scan failed');
         });
       });
@@ -132,7 +134,7 @@ async function runScanBackground(
   dir?: string,
   storageStatePath?: string,
   authSessionId?: string,
-  opts: { enableKeyboard?: boolean; maxPages?: number } = {},
+  opts: { enableKeyboard?: boolean; enableScreenshots?: boolean; maxPages?: number } = {},
 ): Promise<void> {
   try {
     let violations: Violation[] = [];
@@ -163,9 +165,14 @@ async function runScanBackground(
       const pageResults: import('@a11y-fixer/core').ScanResult[] = [];
       for await (const pageResult of scanSite(url, {
         maxPages: opts.maxPages ?? 10,
+        ...(opts.enableScreenshots ? { captureScreenshots: true, scanId, dataDir } : {}),
         ...(storageStatePath ? { storageState: storageStatePath } : {}),
       })) {
         pageResults.push(pageResult);
+        // Collect screenshots from each page result
+        if (pageResult.screenshotResults) {
+          screenshotResults.push(...pageResult.screenshotResults);
+        }
       }
       if (pageResults.length > 0) {
         const merged = mergeScanResults(pageResults);

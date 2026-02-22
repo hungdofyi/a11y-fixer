@@ -11,7 +11,7 @@ import UiInput from './ui/input.vue';
 import UiSelect from './ui/select.vue';
 
 const emit = defineEmits<{
-  (e: 'submit', payload: { scanType: string; url: string; authSessionId?: string; enableKeyboard?: boolean }): void;
+  (e: 'submit', payload: { scanType: string; url: string; authSessionId?: string; enableKeyboard?: boolean; enableScreenshots?: boolean }): void;
   (e: 'cancel'): void;
 }>();
 
@@ -22,6 +22,7 @@ const scanType = ref('browser');
 const scanUrl = ref('');
 const requiresLogin = ref(false);
 const enableKeyboard = ref(false);
+const enableScreenshots = ref(false);
 const authStep = ref<'idle' | 'logging-in' | 'capturing'>('idle');
 
 const props = defineProps<{ submitting?: boolean; error?: string | null; defaultUrl?: string }>();
@@ -48,7 +49,7 @@ async function handleDoneLogin(): Promise<void> {
   authStep.value = 'capturing';
   const authSessionId = await scanStore.captureAuthSession();
   if (authSessionId) {
-    emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), authSessionId, enableKeyboard: enableKeyboard.value || undefined });
+    emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), authSessionId, enableKeyboard: enableKeyboard.value || undefined, enableScreenshots: enableScreenshots.value || undefined });
     authStep.value = 'idle';
     requiresLogin.value = false;
   } else {
@@ -67,7 +68,7 @@ function handleSubmit(): void {
     void handleLoginClick();
     return;
   }
-  emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), enableKeyboard: enableKeyboard.value || undefined });
+  emit('submit', { scanType: scanType.value, url: scanUrl.value.trim(), enableKeyboard: enableKeyboard.value || undefined, enableScreenshots: enableScreenshots.value || undefined });
 }
 </script>
 
@@ -112,6 +113,15 @@ function handleSubmit(): void {
               class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <span class="text-sm font-medium text-slate-700">Enable Keyboard Testing</span>
+          </label>
+          <!-- Screenshots toggle — for site scans (browser scans always capture) -->
+          <label v-if="scanType === 'site'" class="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="enableScreenshots"
+              class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span class="text-sm font-medium text-slate-700">Capture Screenshots</span>
           </label>
         </div>
 

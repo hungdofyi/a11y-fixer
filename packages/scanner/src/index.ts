@@ -105,15 +105,16 @@ export async function scanUrl(
  */
 export async function* scanSite(
   url: string,
-  config: Partial<BrowserScanConfig> = {},
-): AsyncGenerator<ScanResult> {
+  config: Partial<BrowserScanConfig> & { scanId?: number; dataDir?: string } = {},
+): AsyncGenerator<ScanUrlResult> {
+  const { scanId, dataDir, ...scanConfig } = config;
   const mergedConfig: BrowserScanConfig = {
     url,
     wcagLevel: 'aa',
     timeout: 30000,
     maxPages: 10,
     concurrency: 5,
-    ...config,
+    ...scanConfig,
   };
 
   const maxPages = mergedConfig.maxPages ?? 10;
@@ -132,6 +133,10 @@ export async function* scanSite(
       urlQueue.push(pageUrl);
     }
 
+    // Track global screenshot count across pages
+    let totalScreenshots = 0;
+    const maxScreenshots = mergedConfig.maxScreenshots ?? 50;
+
     // Process URLs in batches respecting concurrency limit
     for (let i = 0; i < urlQueue.length; i += concurrency) {
       const batch = urlQueue.slice(i, i + concurrency);
@@ -142,7 +147,20 @@ export async function* scanSite(
           try {
             const pageConfig: BrowserScanConfig = { ...mergedConfig, url: pageUrl };
             const axeResults = await scanPage(page, pageConfig);
-            return normalizeAxeResults(axeResults, pageUrl);
+            const normalized = normalizeAxeResults(axeResults, pageUrl);
+
+            // Capture screenshots before closing page
+            let screenshotResults: ScreenshotResult[] | undefined;
+            if (mergedConfig.captureScreenshots && scanId && dataDir
+                && normalized.violations.length > 0 && totalScreenshots < maxScreenshots) {
+              screenshotResults = await captureViolationScreenshots(
+                page, normalized.violations, scanId, dataDir,
+                maxScreenshots - totalScreenshots,
+              );
+              totalScreenshots += screenshotResults.length;
+            }
+
+            return { ...normalized, screenshotResults };
           } finally {
             await page.close();
           }
