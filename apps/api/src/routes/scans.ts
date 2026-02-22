@@ -52,15 +52,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (req, reply) => {
-      const { projectId, scanType, url, dir } = req.body;
-
-      // Validate URL/dir inputs
-      if (scanType === 'browser' && url && !isPublicUrl(url)) {
-        return reply.code(400).send({ error: 'Invalid URL. Only public HTTP(S) URLs allowed.' });
-      }
-      if (scanType === 'static' && dir && !isSafePath(dir)) {
-        return reply.code(400).send({ error: 'Invalid directory. Must be under workspace root.' });
-      }
+      const { projectId, scanType, dir } = req.body;
 
       // Verify project exists
       const [project] = await fastify.db
@@ -69,6 +61,17 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
         .where(eq(projects.id, projectId));
       if (!project) {
         return reply.code(404).send({ error: 'Project not found' });
+      }
+
+      // Fall back to project URL if none provided
+      const url = req.body.url || project.url || undefined;
+
+      // Validate URL/dir inputs
+      if (scanType === 'browser' && url && !isPublicUrl(url)) {
+        return reply.code(400).send({ error: 'Invalid URL. Only public HTTP(S) URLs allowed.' });
+      }
+      if (scanType === 'static' && dir && !isSafePath(dir)) {
+        return reply.code(400).send({ error: 'Invalid directory. Must be under workspace root.' });
       }
 
       const [scan] = await fastify.db
@@ -91,7 +94,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
         });
       });
 
-      reply.code(202).send({ scanId, status: 'running' });
+      reply.code(202).send({ id: scanId, scanId, status: 'running' });
     },
   );
 
@@ -183,10 +186,16 @@ async function runScanBackground(
         totalPages: scannedCount,
       })
       .where(eq(scans.id, scanId));
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[scan:${scanId}] Failed:`, message);
     await db
       .update(scans)
-      .set({ status: 'failed', completedAt: new Date().toISOString() })
+      .set({
+        status: 'failed',
+        completedAt: new Date().toISOString(),
+        config: JSON.stringify({ error: message }),
+      })
       .where(eq(scans.id, scanId));
   }
 }

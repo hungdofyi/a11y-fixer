@@ -34,10 +34,13 @@ export interface TriggerScanInput {
 }
 
 export interface IssuesPage {
-  items: Issue[];
-  total: number;
-  page: number;
-  limit: number;
+  data: Issue[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export const useScanStore = defineStore('scans', () => {
@@ -97,8 +100,8 @@ export const useScanStore = defineStore('scans', () => {
       if (opts.page !== undefined) params.set('page', String(opts.page));
       if (opts.limit !== undefined) params.set('limit', String(opts.limit));
       const result = await apiGet<IssuesPage>(`/issues?${params.toString()}`);
-      issues.value = result.items;
-      totalIssues.value = result.total;
+      issues.value = result.data;
+      totalIssues.value = result.pagination.total;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load issues';
     } finally {

@@ -18,7 +18,12 @@ const SCAN_TYPES = ['browser', 'static', 'keyboard', 'combined'];
 const scanType = ref('browser');
 const scanUrl = ref('');
 
-defineProps<{ submitting?: boolean; error?: string | null }>();
+const props = defineProps<{ submitting?: boolean; error?: string | null; defaultUrl?: string }>();
+
+// Pre-fill URL from project
+if (props.defaultUrl && !scanUrl.value) {
+  scanUrl.value = props.defaultUrl;
+}
 
 function handleSubmit(): void {
   if (!scanUrl.value.trim()) return;

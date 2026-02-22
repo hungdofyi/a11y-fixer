@@ -18,10 +18,20 @@ A step-by-step guide from zero to running accessibility audits with your team.
 git clone <repo-url> && cd a11y-fixer
 pnpm install
 pnpm build
-npx playwright install chromium --with-deps   # browser engine for scanning
+
+# Install browser engine for scanning (MUST run from scanner package dir)
+cd packages/scanner && npx playwright install chromium --with-deps && cd ../..
 ```
 
-That's it. You can now use the CLI locally with zero configuration.
+> **Why `cd packages/scanner`?** Playwright is installed as a dependency of the `@a11y-fixer/scanner` package, not globally. Running `npx playwright` from the repo root won't find it.
+
+> **WSL2 / headless Linux users:** If scans fail with `error while loading shared libraries: libnspr4.so`, Chromium's system dependencies are missing. Install them manually:
+> ```bash
+> sudo apt-get update && sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2
+> ```
+> The `--with-deps` flag tries to do this automatically but requires sudo access, which may not work in all environments.
+
+That's it. The database is created automatically on first run — no migration step needed.
 
 ---
 
@@ -81,11 +91,13 @@ This is a password you make up yourself (any string). It protects your API serve
 
 ## Part 3: Using the CLI
 
+All CLI commands use `pnpm a11y` from the repo root. Run `pnpm a11y --help` to see all commands.
+
 ### Your First Scan
 
 ```bash
 # Scan a public website
-node apps/cli/bin/run.js scan https://example.com
+pnpm a11y scan https://example.com
 ```
 
 This runs all scan types (browser + keyboard) and shows a table of violations.
@@ -94,22 +106,22 @@ This runs all scan types (browser + keyboard) and shows a table of violations.
 
 **Browser scan** — opens the page in Chromium, runs axe-core to find violations:
 ```bash
-a11y scan https://example.com --type browser --pages 20
+pnpm a11y scan https://example.com --type browser --pages 20
 ```
 
 **Static scan** — analyzes your Vue `.vue` files for accessibility anti-patterns (no browser needed):
 ```bash
-a11y scan ./src/components --type static
+pnpm a11y scan ./src/components --type static
 ```
 
 **Keyboard scan** — tests tab order, focus traps, skip links:
 ```bash
-a11y scan https://example.com --type keyboard
+pnpm a11y scan https://example.com --type keyboard
 ```
 
 **All at once** (default):
 ```bash
-a11y scan https://example.com --type all
+pnpm a11y scan https://example.com --type all
 ```
 
 ### Scanning Pages Behind Login
@@ -118,13 +130,13 @@ If your app requires login (most SaaS apps do):
 
 **Step 1:** Open a browser and log in manually:
 ```bash
-a11y auth login https://your-app.com
+pnpm a11y auth login https://your-app.com
 ```
 A Chromium window opens. Log in as you normally would. When you're done, close the browser. Your session is saved to `~/.a11y-fixer/storage-state.json`.
 
 **Step 2:** Scan using that session:
 ```bash
-a11y scan https://your-app.com/dashboard --storage-state ~/.a11y-fixer/storage-state.json
+pnpm a11y scan https://your-app.com/dashboard --storage-state ~/.a11y-fixer/storage-state.json
 ```
 
 The scanner reuses your cookies — it doesn't store your username/password.
@@ -133,9 +145,9 @@ The scanner reuses your cookies — it doesn't store your username/password.
 
 Projects let you group scans and track history:
 ```bash
-a11y project create --name "Our SaaS App" --url "https://app.example.com"
-a11y project list
-a11y project show 1
+pnpm a11y project create --name "Our SaaS App" --url "https://app.example.com"
+pnpm a11y project list
+pnpm a11y project show 1
 ```
 
 ### Generating Reports
@@ -143,33 +155,33 @@ a11y project show 1
 After running scans:
 ```bash
 # HTML report (interactive, viewable in browser)
-a11y report --report-format html -o report.html
+pnpm a11y report --report-format html -o report.html
 
 # CSV (for spreadsheets)
-a11y report --report-format csv -o violations.csv
+pnpm a11y report --report-format csv -o violations.csv
 
 # PDF (for sharing/printing)
-a11y report --report-format pdf -o report.pdf
+pnpm a11y report --report-format pdf -o report.pdf
 ```
 
 ### Generating a VPAT
 
 VPAT 2.5 compliance document covering WCAG 2.1/2.2, Section 508, EN 301 549:
 ```bash
-a11y vpat -o compliance.docx
+pnpm a11y vpat -o compliance.docx
 
 # With AI-generated narratives (needs ANTHROPIC_API_KEY or OAuth token)
-a11y vpat --ai -o compliance.docx
+pnpm a11y vpat --ai -o compliance.docx
 ```
 
 ### Getting Fix Suggestions
 
 ```bash
 # Rule-based suggestions (no AI needed)
-a11y fix-suggest https://example.com
+pnpm a11y fix-suggest https://example.com
 
 # AI-powered suggestions (needs API key or OAuth)
-a11y fix-suggest https://example.com --ai
+pnpm a11y fix-suggest https://example.com --ai
 ```
 
 ### Useful Flags (all commands)
@@ -201,13 +213,21 @@ pnpm --filter @a11y-fixer/web dev
 
 Open `http://localhost:5173` in your browser. The web UI automatically proxies API calls to the backend on port 3001.
 
+> **Important:** If you edit web frontend code, you must rebuild and hard-refresh:
+> ```bash
+> pnpm build
+> ```
+> Then do a hard refresh in the browser (`Ctrl+Shift+R` / `Cmd+Shift+R`). The API serves the *built* SPA files, so code changes aren't visible until you rebuild.
+
 ### What You Can Do in the Dashboard
 
 1. **Home page (`/`)** — see all your projects. Click "Create Project" to add one.
-2. **Project detail (`/projects/1`)** — see scan history for a project. Click "New Scan" to trigger a browser or static scan. A live progress indicator shows scan status.
+2. **Project detail (`/projects/1`)** — see scan history for a project. Click "New Scan" to trigger a browser or static scan. The URL field pre-fills from the project URL. A live progress indicator shows scan status. Click "Delete Project" to remove a project and all its scans/issues (requires two clicks to confirm).
 3. **Scan results (`/scans/1`)** — see violations grouped by severity (Critical, Serious, Moderate, Minor). Filter by severity or WCAG criterion. Download HTML or CSV reports.
 4. **Issue detail (`/issues/1`)** — see the full rule description, affected HTML element, CSS selector, WCAG criteria, and fix suggestion.
 5. **VPAT wizard (`/vpat`)** — pick a project, choose format (Word or HTML), generate and download the compliance document.
+
+> **Project URL vs Scan URL:** When you create a project, the URL is the *default* target for all scans in that project. When you start a new scan, you can override it with a different URL (e.g., to scan a specific page). If you leave the scan URL empty, it falls back to the project URL.
 
 ---
 
@@ -268,30 +288,30 @@ docker compose cp app:/app/data/a11y-fixer.db ./backup.db
 
 ### Quick Audit of a Public Site
 ```bash
-a11y scan https://example.com --pages 50
-a11y report --report-format html -o audit.html
-a11y vpat -o compliance.docx
+pnpm a11y scan https://example.com --pages 50
+pnpm a11y report --report-format html -o audit.html
+pnpm a11y vpat -o compliance.docx
 ```
 
 ### Full Compliance Audit of Your App
 ```bash
 # Log in to your app
-a11y auth login https://app.yourcompany.com
+pnpm a11y auth login https://app.yourcompany.com
 
 # Scan with authentication
-a11y scan https://app.yourcompany.com --storage-state ~/.a11y-fixer/storage-state.json --pages 100
+pnpm a11y scan https://app.yourcompany.com --storage-state ~/.a11y-fixer/storage-state.json --pages 100
 
 # Get fix suggestions
-a11y fix-suggest https://app.yourcompany.com --ai -o fixes.json
+pnpm a11y fix-suggest https://app.yourcompany.com --ai -o fixes.json
 
 # Generate reports
-a11y report --report-format html -o report.html
-a11y vpat --ai -o vpat.docx
+pnpm a11y report --report-format html -o report.html
+pnpm a11y vpat --ai -o vpat.docx
 ```
 
 ### CI/CD Pipeline Integration
 ```bash
-a11y scan https://staging.example.com --type browser --format json -o results.json
+pnpm a11y scan https://staging.example.com --type browser --format json -o results.json
 
 # Fail pipeline if critical issues found
 node -e "
@@ -313,8 +333,9 @@ Swagger docs: `http://localhost:3001/docs`
 | `GET` | `/projects` | List all projects |
 | `POST` | `/projects` | Create project `{ name, url? }` |
 | `GET` | `/projects/:id` | Get project with scan count |
-| `DELETE` | `/projects/:id` | Delete project |
-| `POST` | `/scans` | Start scan `{ projectId, scanType, url?, dir? }` |
+| `GET` | `/projects/:id/scans` | List scans for a project (with violation counts) |
+| `DELETE` | `/projects/:id` | Delete project (cascades: issues → scans → project) |
+| `POST` | `/scans` | Start scan `{ projectId, scanType, url?, dir? }`. URL falls back to project URL if omitted. |
 | `GET` | `/scans/:id` | Get scan with issue count |
 | `GET` | `/sse/:id/progress` | Real-time scan progress (SSE stream) |
 | `GET` | `/issues` | List issues `?scanId=&severity=&wcag=&page=&limit=` |
@@ -331,7 +352,8 @@ Swagger docs: `http://localhost:3001/docs`
 
 | Problem | Fix |
 |---------|-----|
-| `Chromium not found` | `npx playwright install chromium --with-deps` |
+| `Chromium not found` / `Executable doesn't exist` | Run from scanner dir: `cd packages/scanner && npx playwright install chromium --with-deps` |
+| `error while loading shared libraries: libnspr4.so` | Missing system libs (common on WSL2/headless Linux). Run: `sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2` |
 | `ECONNREFUSED :3001` | Start API: `pnpm --filter @a11y-fixer/api dev` |
 | `401 Unauthorized` (API) | Pass `x-api-key` header matching `A11Y_API_KEY` in .env |
 | `401 Unauthorized` (browser) | Log in at `/auth/google` |
@@ -339,6 +361,9 @@ Swagger docs: `http://localhost:3001/docs`
 | `OAuth callback error` | Make sure `BASE_URL` matches the redirect URI in Google Console exactly |
 | `Storage state expired` | Re-run `a11y auth login <url>` to refresh your session |
 | `Docker build fails` | Needs Docker 24+, and `pnpm-lock.yaml` must exist (run `pnpm install` first) |
+| Web UI not updating after code change | Run `pnpm build` and hard-refresh (`Ctrl+Shift+R`). The API serves the built SPA. |
+| Scan fails immediately | Check API logs. Common cause: Playwright chromium not installed (see first row). |
+| Delete project does nothing | Click once to see "Confirm Delete", click again to actually delete. Check browser console for errors. |
 
 ---
 

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin';
 import { createDb, type AppDatabase } from '@a11y-fixer/core';
 
 /** Augment FastifyInstance with db property */
@@ -15,4 +16,4 @@ const dbPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.decorate('db', db);
 };
 
-export default dbPlugin;
+export default fp(dbPlugin, { name: 'db' });

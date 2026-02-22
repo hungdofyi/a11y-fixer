@@ -63,6 +63,16 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
       },
     });
   });
+
+  // GET /:id - single issue detail
+  fastify.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    const [issue] = await fastify.db.select().from(issues).where(eq(issues.id, id));
+    if (!issue) {
+      return reply.code(404).send({ error: 'Issue not found' });
+    }
+    reply.send(issue);
+  });
 };
 
 export default issuesRoutes;

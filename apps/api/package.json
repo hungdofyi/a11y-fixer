@@ -14,14 +14,15 @@
     "@a11y-fixer/rules-engine": "workspace:*",
     "@a11y-fixer/scanner": "workspace:*",
     "@fastify/cookie": "^11.0.2",
-    "@fastify/cors": "^9.0.0",
+    "@fastify/cors": "^11.2.0",
     "@fastify/oauth2": "^8.2.0",
     "@fastify/secure-session": "^8.3.0",
     "@fastify/static": "^9.0.0",
-    "@fastify/swagger": "^8.15.0",
-    "@fastify/swagger-ui": "^4.1.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "drizzle-orm": "^0.38.0",
-    "fastify": "^4.28.0"
+    "fastify": "^5.7.4",
+    "fastify-plugin": "^5.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

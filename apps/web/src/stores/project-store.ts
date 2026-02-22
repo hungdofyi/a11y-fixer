@@ -1,7 +1,7 @@
 // Pinia store for projects list and current project state
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { apiGet, apiPost } from '../composables/use-api.js';
+import { apiGet, apiPost, apiDelete } from '../composables/use-api.js';
 
 export interface Project {
   id: string;
@@ -57,5 +57,17 @@ export const useProjectStore = defineStore('projects', () => {
     }
   }
 
-  return { projects, currentProject, loading, error, fetchProjects, fetchProject, createProject };
+  async function deleteProject(id: string): Promise<boolean> {
+    error.value = null;
+    try {
+      await apiDelete(`/projects/${id}`);
+      projects.value = projects.value.filter((p) => p.id !== id);
+      return true;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to delete project';
+      return false;
+    }
+  }
+
+  return { projects, currentProject, loading, error, fetchProjects, fetchProject, createProject, deleteProject };
 });

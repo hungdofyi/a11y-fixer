@@ -23,9 +23,6 @@ const staticFilesPlugin: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyStatic, {
     root: webDistPath,
     prefix: '/',
-    decorateReply: false,
-    // Don't serve static files for /api/ or /auth/ paths
-    constraints: {},
   });
 
   // SPA fallback: serve index.html for all non-API, non-auth, non-file routes

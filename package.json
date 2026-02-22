@@ -5,6 +5,7 @@
   "description": "Accessibility scanning, fixing, and VPAT reporting monorepo",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
+    "a11y": "node apps/cli/bin/run.js",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",

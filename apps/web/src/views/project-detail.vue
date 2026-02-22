@@ -25,6 +25,17 @@ const projectId = computed(() => String(route.params.id));
 const showScanForm = ref(false);
 const submitting = ref(false);
 
+const confirmingDelete = ref(false);
+
+async function handleDelete(): Promise<void> {
+  if (!confirmingDelete.value) {
+    confirmingDelete.value = true;
+    return;
+  }
+  const ok = await projectStore.deleteProject(projectId.value);
+  if (ok) router.push('/');
+}
+
 const { progressScanId, progressStatus, progressPct, watchScanProgress } = useScanProgress(
   () => { void scanStore.fetchScans(projectId.value); }
 );
@@ -89,15 +100,21 @@ function statusVariant(status: string): BadgeVariant {
           {{ projectStore.currentProject.url }}
         </a>
       </div>
-      <UiButton @click="showScanForm = !showScanForm" :aria-expanded="showScanForm">
-        + New Scan
-      </UiButton>
+      <div class="flex gap-2">
+        <UiButton @click="showScanForm = !showScanForm" :aria-expanded="showScanForm">
+          + New Scan
+        </UiButton>
+        <UiButton variant="destructive" @click="handleDelete">
+          {{ confirmingDelete ? 'Confirm Delete' : 'Delete Project' }}
+        </UiButton>
+      </div>
     </div>
 
     <NewScanForm
       v-if="showScanForm"
       :submitting="submitting"
       :error="scanStore.error"
+      :default-url="projectStore.currentProject?.url ?? ''"
       @submit="handleScanSubmit"
       @cancel="showScanForm = false"
     />

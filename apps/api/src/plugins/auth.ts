@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import fp from 'fastify-plugin';
 
 /** Routes that skip API key authentication */
 const PUBLIC_PREFIXES = ['/health', '/documentation', '/swagger', '/auth/'];
@@ -40,4 +41,4 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-export default authPlugin;
+export default fp(authPlugin, { name: 'auth' });

@@ -4,6 +4,7 @@
  * Works alongside the existing API-key auth (CLI/programmatic access keeps using x-api-key).
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import fp from 'fastify-plugin';
 import oauthPlugin from '@fastify/oauth2';
 import secureSession from '@fastify/secure-session';
 import cookie from '@fastify/cookie';
@@ -170,4 +171,4 @@ const oauthSsoPlugin: FastifyPluginAsync = async (fastify) => {
   });
 };
 
-export default oauthSsoPlugin;
+export default fp(oauthSsoPlugin, { name: 'oauth-sso' });

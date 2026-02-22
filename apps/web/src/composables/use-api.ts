@@ -38,6 +38,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text);
   }
+  if (res.status === 204) return undefined as T;
   const contentType = res.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     return res.json() as Promise<T>;
@@ -66,9 +67,12 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 /** DELETE request */
 export async function apiDelete<T>(path: string): Promise<T> {
+  const headers: Record<string, string> = {};
+  const API_KEY = import.meta.env.VITE_API_KEY;
+  if (API_KEY) headers['X-API-Key'] = API_KEY;
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'DELETE',
-    headers: buildHeaders(),
+    headers,
   });
   return handleResponse<T>(res);
 }

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, sql } from 'drizzle-orm';
-import { projects, scans } from '@a11y-fixer/core';
+import { eq, sql, desc } from 'drizzle-orm';
+import { projects, scans, issues } from '@a11y-fixer/core';
 
 /** CRUD routes for projects resource */
 const projectsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -49,16 +49,42 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
     reply.send({ ...project, scanCount: countRow?.count ?? 0 });
   });
 
-  // DELETE /:id - delete project
-  fastify.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
+  // GET /:id/scans - list scans for a project
+  fastify.get<{ Params: { id: string } }>('/:id/scans', async (req, reply) => {
     const id = parseInt(req.params.id, 10);
     const rows = await fastify.db
-      .delete(projects)
-      .where(eq(projects.id, id))
-      .returning();
-    if (rows.length === 0) {
+      .select({
+        id: scans.id,
+        projectId: scans.projectId,
+        scanType: scans.scanType,
+        status: scans.status,
+        startedAt: scans.startedAt,
+        completedAt: scans.completedAt,
+        totalPages: scans.totalPages,
+        createdAt: scans.createdAt,
+        violationCount: sql<number>`(SELECT count(*) FROM issues WHERE issues.scan_id = ${scans.id})`,
+      })
+      .from(scans)
+      .where(eq(scans.projectId, id))
+      .orderBy(desc(scans.createdAt));
+    reply.send(rows);
+  });
+
+  // DELETE /:id - cascade delete project, its scans, and issues
+  fastify.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    const [project] = await fastify.db.select().from(projects).where(eq(projects.id, id));
+    if (!project) {
       return reply.code(404).send({ error: 'Not found' });
     }
+    // Delete issues for all scans in this project
+    const projectScans = await fastify.db.select({ id: scans.id }).from(scans).where(eq(scans.projectId, id));
+    for (const s of projectScans) {
+      await fastify.db.delete(issues).where(eq(issues.scanId, s.id));
+    }
+    // Delete scans, vpat entries, then project
+    await fastify.db.delete(scans).where(eq(scans.projectId, id));
+    await fastify.db.delete(projects).where(eq(projects.id, id));
     reply.code(204).send();
   });
 };
