@@ -177,13 +177,13 @@ importers:
 
   packages/ai-engine:
     dependencies:
+      '@a11y-fixer/core':
+        specifier: workspace:*
+        version: link:../core
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.2
         version: 0.2.50(zod@4.3.6)
     devDependencies:
-      '@a11y-fixer/core':
-        specifier: workspace:*
-        version: link:../core
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
@@ -212,22 +212,23 @@ importers:
 
   packages/report-generator:
     dependencies:
+      '@a11y-fixer/core':
+        specifier: workspace:*
+        version: link:../core
       docx:
         specifier: ^9.0.0
         version: 9.5.3
     devDependencies:
-      '@a11y-fixer/core':
-        specifier: workspace:*
-        version: link:../core
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
 
   packages/rules-engine:
-    devDependencies:
+    dependencies:
       '@a11y-fixer/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
