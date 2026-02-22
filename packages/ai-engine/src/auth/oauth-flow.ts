@@ -1,144 +1,150 @@
 /**
- * OAuth 2.0 PKCE flow: start authorization, handle callback, refresh tokens.
- * Opens browser for user authorization and runs a local HTTP server for callback.
+ * OAuth 2.0 PKCE flow for web UI context.
+ * Backend builds auth URL + stores PKCE state in memory.
+ * Frontend opens auth URL in new tab, user copies code, frontend sends it back.
  */
-import { createServer } from 'node:http';
-import { URL } from 'node:url';
-import { execFile } from 'node:child_process';
-import { OAUTH_CONFIG, CALLBACK_PORT, CALLBACK_PATH } from './oauth-config.js';
+import { OAUTH_CONFIG } from './oauth-config.js';
 import { generatePkceParams } from './pkce.js';
 import { saveToken, loadToken, isTokenValid } from './token-storage.js';
 import type { OAuthToken } from './token-storage.js';
 
-/** Build the authorization URL with PKCE parameters */
-function buildAuthUrl(codeChallenge: string, state: string): string {
-  const url = new URL(OAUTH_CONFIG.authorizationUrl);
-  url.searchParams.set('response_type', 'code');
-  url.searchParams.set('client_id', OAUTH_CONFIG.clientId);
-  url.searchParams.set('redirect_uri', OAUTH_CONFIG.redirectUri);
-  url.searchParams.set('scope', OAUTH_CONFIG.scopes.join(' '));
-  url.searchParams.set('code_challenge', codeChallenge);
-  url.searchParams.set('code_challenge_method', 'S256');
-  url.searchParams.set('state', state);
-  return url.toString();
+/** In-memory PKCE state for the current auth flow */
+interface OAuthState {
+  state: string;
+  codeVerifier: string;
+  codeChallenge: string;
+  expiresAt: number;
 }
 
-/** Open URL in the system default browser */
-function openBrowser(url: string): void {
-  const platform = process.platform;
-  const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-  execFile(cmd, [url]);
-}
+let currentOAuthState: OAuthState | null = null;
 
-/** Wait for the OAuth callback on the local HTTP server, returns auth code */
-async function waitForCallback(expectedState: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const server = createServer((req, res) => {
-      if (!req.url?.startsWith(CALLBACK_PATH)) {
-        res.writeHead(404);
-        res.end('Not found');
-        return;
-      }
+/** Build authorization URL with PKCE params and store state in memory */
+export function buildAuthorizationUrl(): { authUrl: string; state: string } {
+  const pkce = generatePkceParams();
 
-      const params = new URL(req.url, `http://localhost:${CALLBACK_PORT}`).searchParams;
-      const error = params.get('error');
-      const code = params.get('code');
-      const state = params.get('state');
+  currentOAuthState = {
+    state: pkce.state,
+    codeVerifier: pkce.codeVerifier,
+    codeChallenge: pkce.codeChallenge,
+    expiresAt: Date.now() + OAUTH_CONFIG.stateExpiryMs,
+  };
 
-      if (error) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end('<h1>Authorization failed</h1><p>You can close this window.</p>');
-        server.close();
-        reject(new Error(`OAuth error: ${error} - ${params.get('error_description') ?? ''}`));
-        return;
-      }
-
-      if (state !== expectedState) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end('<h1>State mismatch</h1><p>You can close this window.</p>');
-        server.close();
-        reject(new Error('OAuth state mismatch - possible CSRF attack'));
-        return;
-      }
-
-      if (!code) {
-        res.writeHead(400, { 'Content-Type': 'text/html' });
-        res.end('<h1>No code received</h1><p>You can close this window.</p>');
-        server.close();
-        reject(new Error('No authorization code received'));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end('<h1>Authorization successful!</h1><p>You can close this window and return to the terminal.</p>');
-      server.close();
-      resolve(code);
-    });
-
-    server.listen(CALLBACK_PORT, 'localhost', () => {
-      // Server ready - browser can now redirect here
-    });
-
-    server.on('error', reject);
-
-    // Timeout after 5 minutes
-    setTimeout(() => {
-      server.close();
-      reject(new Error('OAuth callback timed out after 5 minutes'));
-    }, 5 * 60 * 1000);
-  });
-}
-
-/** Exchange authorization code for tokens */
-async function exchangeCodeForToken(code: string, codeVerifier: string): Promise<OAuthToken> {
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: OAUTH_CONFIG.redirectUri,
+  const params = new URLSearchParams({
+    code: 'true',
     client_id: OAUTH_CONFIG.clientId,
-    code_verifier: codeVerifier,
+    response_type: 'code',
+    redirect_uri: OAUTH_CONFIG.redirectUri,
+    scope: OAUTH_CONFIG.scopes,
+    code_challenge: pkce.codeChallenge,
+    code_challenge_method: 'S256',
+    state: pkce.state,
   });
+
+  const authUrl = `${OAUTH_CONFIG.authorizationUrl}?${params.toString()}`;
+  return { authUrl, state: pkce.state };
+}
+
+/** Exchange authorization code for tokens using stored PKCE verifier */
+export async function exchangeAuthCode(code: string, state: string): Promise<OAuthToken> {
+  if (!currentOAuthState) {
+    throw new Error('No OAuth state found. Please start authentication again.');
+  }
+
+  if (Date.now() >= currentOAuthState.expiresAt) {
+    currentOAuthState = null;
+    throw new Error('OAuth state expired. Please try again.');
+  }
+
+  if (currentOAuthState.state !== state) {
+    currentOAuthState = null;
+    throw new Error('OAuth state mismatch — possible CSRF attack.');
+  }
+
+  // Capture verifier and clear state before exchange to prevent reuse
+  const codeVerifier = currentOAuthState.codeVerifier;
+  const storedState = currentOAuthState.state;
+  currentOAuthState = null;
+
+  // Clean code (strip URL fragments/extra params if user pastes full URL)
+  const cleanCode = code.split('#')[0]?.split('&')[0] ?? code;
+
+  const body = {
+    grant_type: 'authorization_code',
+    client_id: OAUTH_CONFIG.clientId,
+    code: cleanCode,
+    redirect_uri: OAUTH_CONFIG.redirectUri,
+    code_verifier: codeVerifier,
+    state: storedState,
+  };
 
   const response = await fetch(OAUTH_CONFIG.tokenUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: 'https://claude.ai/',
+      Origin: 'https://claude.ai',
+    },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Token exchange failed (${response.status}): ${text}`);
+    const errorText = await response.text();
+    let errorMessage: string;
+    try {
+      const errorJson = JSON.parse(errorText) as { error_description?: string; error?: string };
+      errorMessage = errorJson.error_description ?? errorJson.error ?? errorText;
+    } catch {
+      errorMessage = errorText;
+    }
+    throw new Error(`Token exchange failed (${response.status}): ${errorMessage}`);
   }
 
   const data = await response.json() as {
-    access_token: string;
+    access_token?: string;
     refresh_token?: string;
     expires_in?: number;
     token_type?: string;
   };
 
-  return {
+  if (!data.access_token) {
+    throw new Error('Token exchange succeeded but no access_token in response');
+  }
+
+  const token: OAuthToken = {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
     tokenType: data.token_type ?? 'Bearer',
   };
+
+  saveToken(token);
+  return token;
 }
 
 /** Refresh an expired access token using the refresh token */
 export async function refreshToken(token: OAuthToken): Promise<OAuthToken> {
   if (!token.refreshToken) throw new Error('No refresh token available');
 
-  const body = new URLSearchParams({
+  const body = {
     grant_type: 'refresh_token',
-    refresh_token: token.refreshToken,
     client_id: OAUTH_CONFIG.clientId,
-  });
+    refresh_token: token.refreshToken,
+  };
 
   const response = await fetch(OAUTH_CONFIG.tokenUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      Accept: 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: 'https://claude.ai/',
+      Origin: 'https://claude.ai',
+    },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -165,28 +171,10 @@ export async function refreshToken(token: OAuthToken): Promise<OAuthToken> {
 }
 
 /**
- * Start the OAuth PKCE flow: open browser, wait for callback, exchange code.
- * Returns the stored OAuthToken after successful authorization.
+ * Get a valid OAuth token, refreshing if needed.
+ * Returns null if no token stored.
  */
-export async function startOAuthFlow(): Promise<OAuthToken> {
-  const pkce = generatePkceParams();
-  const authUrl = buildAuthUrl(pkce.codeChallenge, pkce.state);
-
-  console.log('\nOpening browser for Claude authorization...');
-  console.log('If browser does not open, visit:\n', authUrl, '\n');
-  openBrowser(authUrl);
-
-  const code = await waitForCallback(pkce.state);
-  const token = await exchangeCodeForToken(code, pkce.codeVerifier);
-  saveToken(token);
-  return token;
-}
-
-/**
- * Get a valid OAuth token, refreshing or re-authorizing as needed.
- * Returns null if no token and flow is skipped (non-interactive mode).
- */
-export async function getValidToken(interactive = true): Promise<OAuthToken | null> {
+export async function getValidToken(): Promise<OAuthToken | null> {
   const stored = loadToken();
 
   if (stored && isTokenValid(stored)) return stored;
@@ -195,11 +183,9 @@ export async function getValidToken(interactive = true): Promise<OAuthToken | nu
     try {
       return await refreshToken(stored);
     } catch {
-      // Refresh failed, fall through to re-auth
+      // Refresh failed, needs re-auth
     }
   }
 
-  if (!interactive) return null;
-
-  return startOAuthFlow();
+  return null;
 }

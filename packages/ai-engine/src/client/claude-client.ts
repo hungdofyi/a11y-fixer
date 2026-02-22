@@ -27,8 +27,8 @@ const DEFAULT_MODEL = 'claude-sonnet-4-5';
  * OAuth PKCE only — internal tool, all users use Claude subscription.
  * Returns true if auth was configured successfully.
  */
-export async function setupAuth(interactive = false): Promise<boolean> {
-  const token = await getValidToken(interactive);
+export async function setupAuth(): Promise<boolean> {
+  const token = await getValidToken();
   if (!token) return false;
 
   process.env['CLAUDE_CODE_OAUTH_TOKEN'] = token.accessToken;

@@ -89,7 +89,7 @@ const issuesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { setupAuth, analyzeComplexIssue } = await import('@a11y-fixer/ai-engine');
 
-      const authed = await setupAuth(false);
+      const authed = await setupAuth();
       if (!authed) {
         return reply.code(503).send({
           error: 'AI unavailable: OAuth not configured. Run `a11y-fixer auth login` in the CLI first to authenticate.',

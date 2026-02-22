@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Issue detail view: rich audit experience with screenshots, fix steps, HTML snippet
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan-store.js';
 import SeverityBadge from '../components/severity-badge.vue';
@@ -22,6 +22,9 @@ const store = useScanStore();
 
 const issueId = computed(() => String(route.params.id));
 const issue = computed(() => store.currentIssue);
+
+/** OAuth code input field */
+const authCode = ref('');
 
 const wcagLabels = computed(() => {
   if (!issue.value?.wcagCriteria) return [];
@@ -155,19 +158,47 @@ function goBack(): void {
           </div>
         </UiCardHeader>
         <UiCardContent>
-          <!-- Auth required: show login button -->
-          <div v-if="store.error === 'AI_AUTH_REQUIRED'" class="bg-amber-50 border border-amber-300 rounded-md px-4 py-3" role="alert">
+          <!-- Auth required OR pending code input -->
+          <div v-if="store.error === 'AI_AUTH_REQUIRED' || store.pendingAuthState" class="bg-amber-50 border border-amber-300 rounded-md px-4 py-3" role="alert">
             <p class="text-sm font-medium text-amber-800 mb-2">Claude OAuth authentication required</p>
-            <p class="text-sm text-amber-700 mb-3">
-              You need to authenticate with Claude AI first. Click the button below to open the authorization page in your browser.
-            </p>
-            <UiButton
-              size="sm"
-              :disabled="store.aiFixLoading"
-              @click="void store.loginAndGenerateAiFix(issueId)"
-            >
-              {{ store.aiFixLoading ? 'Authenticating…' : 'Login with Claude & Generate Fix' }}
-            </UiButton>
+
+            <!-- Step 1: Open auth page -->
+            <template v-if="!store.pendingAuthState">
+              <p class="text-sm text-amber-700 mb-3">
+                Click below to open Claude's authorization page in a new tab.
+              </p>
+              <UiButton
+                size="sm"
+                :disabled="store.aiFixLoading"
+                @click="void store.startOAuthLogin(issueId)"
+              >
+                Sign in with Claude
+              </UiButton>
+            </template>
+
+            <!-- Step 2: Paste authorization code -->
+            <template v-else>
+              <p class="text-sm text-amber-700 mb-3">
+                Authorize in the new tab, then copy the code shown and paste it below.
+              </p>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="authCode"
+                  type="text"
+                  placeholder="Paste authorization code here"
+                  class="flex-1 text-sm border border-amber-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  :disabled="store.aiFixLoading"
+                  @keyup.enter="void store.completeOAuthLogin(authCode).then(() => { authCode = '' })"
+                />
+                <UiButton
+                  size="sm"
+                  :disabled="store.aiFixLoading || !authCode.trim()"
+                  @click="void store.completeOAuthLogin(authCode).then(() => { authCode = '' })"
+                >
+                  {{ store.aiFixLoading ? 'Verifying…' : 'Submit Code' }}
+                </UiButton>
+              </div>
+            </template>
           </div>
           <p v-else-if="!issue.fixSuggestion && !store.aiFixLoading" class="text-sm text-slate-500">
             No AI fix generated yet. Click "Generate AI Fix" to request one.

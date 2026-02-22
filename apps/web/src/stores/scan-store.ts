@@ -154,16 +154,43 @@ export const useScanStore = defineStore('scans', () => {
     }
   }
 
-  /** Trigger server-side OAuth login flow, then retry AI fix */
-  async function loginAndGenerateAiFix(issueId: string): Promise<void> {
+  /** Pending auth state for code-paste flow */
+  const pendingAuthState = ref<string | null>(null);
+  /** Issue ID waiting for auth completion */
+  const pendingAuthIssueId = ref<string | null>(null);
+
+  /** Start OAuth flow: get auth URL, open in new tab, show code input */
+  async function startOAuthLogin(issueId: string): Promise<void> {
+    error.value = null;
+    try {
+      const { authUrl, state } = await apiPost<{ authUrl: string; state: string }>('/auth/login', {});
+      pendingAuthState.value = state;
+      pendingAuthIssueId.value = issueId;
+      window.open(authUrl, '_blank');
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to start OAuth flow';
+    }
+  }
+
+  /** Complete OAuth flow: send copied code to backend, then generate AI fix */
+  async function completeOAuthLogin(code: string): Promise<void> {
+    if (!pendingAuthState.value || !pendingAuthIssueId.value) {
+      error.value = 'No pending auth state. Please start login again.';
+      return;
+    }
     aiFixLoading.value = true;
     error.value = null;
     try {
-      await apiPost('/auth/login', {});
-      // Auth succeeded — now generate the fix
+      await apiPost('/auth/callback', { code, state: pendingAuthState.value });
+      const issueId = pendingAuthIssueId.value;
+      pendingAuthState.value = null;
+      pendingAuthIssueId.value = null;
       await generateAiFix(issueId);
     } catch (err) {
-      error.value = err instanceof Error ? 'OAuth login failed. Check the browser window that opened for authorization.' : 'Login failed';
+      // Clear pending state so user can retry from scratch
+      pendingAuthState.value = null;
+      pendingAuthIssueId.value = null;
+      error.value = err instanceof Error ? err.message : 'OAuth callback failed';
     } finally {
       aiFixLoading.value = false;
     }
@@ -183,7 +210,10 @@ export const useScanStore = defineStore('scans', () => {
     triggerScan,
     fetchIssues,
     fetchIssue,
+    pendingAuthState,
+    pendingAuthIssueId,
     generateAiFix,
-    loginAndGenerateAiFix,
+    startOAuthLogin,
+    completeOAuthLogin,
   };
 });

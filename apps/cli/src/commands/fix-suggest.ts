@@ -62,7 +62,7 @@ export default class FixSuggest extends BaseCommand {
     // AI branch — only runs when --ai flag set
     if (flags.ai) {
       const { setupAuth, analyzeComplexIssue } = await import('@a11y-fixer/ai-engine');
-      const authed = await setupAuth(true);
+      const authed = await setupAuth();
       if (!authed) {
         this.warn('AI unavailable: run `a11y-fixer auth login` first.');
       } else {
