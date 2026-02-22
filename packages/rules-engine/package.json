@@ -17,13 +17,12 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@a11y-fixer/core": "workspace:*"
   },
   "devDependencies": {
-    "@a11y-fixer/core": "workspace:*",
     "typescript": "^5.7.0"
   }
 }
