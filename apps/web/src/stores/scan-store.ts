@@ -98,6 +98,18 @@ export const useScanStore = defineStore('scans', () => {
     }
   }
 
+  async function deleteScan(id: string): Promise<boolean> {
+    error.value = null;
+    try {
+      await apiDelete(`/scans/${id}`);
+      scans.value = scans.value.filter((s) => s.id !== id);
+      return true;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to delete scan';
+      return false;
+    }
+  }
+
   async function fetchIssues(
     scanId: string,
     opts: { severity?: string; page?: number; limit?: number } = {}
@@ -259,6 +271,7 @@ export const useScanStore = defineStore('scans', () => {
     fetchScans,
     fetchScan,
     triggerScan,
+    deleteScan,
     fetchIssues,
     fetchIssue,
     authSessionId,

@@ -1,7 +1,8 @@
-import { resolve, normalize } from 'node:path';
+import { rm } from 'node:fs/promises';
+import { resolve, normalize, join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
-import { scans, issues, projects } from '@a11y-fixer/core';
+import { scans, issues, projects, vpatEntries } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
 import { scanUrl, scanFiles, scanSite } from '@a11y-fixer/scanner';
 import type { ScreenshotResult } from '@a11y-fixer/scanner';
@@ -121,6 +122,25 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       .from(issues)
       .where(eq(issues.scanId, id));
     reply.send({ ...scan, issueCount: countRow?.count ?? 0 });
+  });
+
+  // DELETE /:id - delete a scan, its issues, vpat entries, and screenshots
+  fastify.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    const id = parseInt(req.params.id, 10);
+    const [scan] = await fastify.db.select().from(scans).where(eq(scans.id, id));
+    if (!scan) {
+      return reply.code(404).send({ error: 'Not found' });
+    }
+
+    const dataDir = process.env['A11Y_DATA_DIR'] ?? resolve(process.cwd(), 'data');
+
+    // Delete in FK-safe order: issues → vpat entries → screenshots → scan
+    await fastify.db.delete(issues).where(eq(issues.scanId, id));
+    await fastify.db.delete(vpatEntries).where(eq(vpatEntries.scanId, id));
+    await rm(join(dataDir, 'screenshots', String(id)), { recursive: true, force: true });
+    await fastify.db.delete(scans).where(eq(scans.id, id));
+
+    reply.code(204).send();
   });
 };
 

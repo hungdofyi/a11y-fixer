@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Scan results: severity summary cards, filterable issue table, report downloads
-import { computed, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan-store.js';
 import { apiUrl } from '../composables/use-api.js';
@@ -63,6 +63,18 @@ async function downloadReport(format: 'html' | 'csv'): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
 }
 
+const confirmingDelete = ref(false);
+
+async function handleDeleteScan(): Promise<void> {
+  if (!confirmingDelete.value) {
+    confirmingDelete.value = true;
+    return;
+  }
+  const projectId = store.currentScan?.projectId;
+  const ok = await store.deleteScan(scanId.value);
+  if (ok && projectId) router.push(`/projects/${projectId}`);
+}
+
 function handleSelectIssue(issue: Issue): void {
   void router.push(`/issues/${issue.id}`);
 }
@@ -90,12 +102,15 @@ function formatDate(iso?: string): string {
           &mdash; {{ formatDate(store.currentScan.completedAt) }}
         </p>
       </div>
-      <div class="flex gap-3 flex-shrink-0" aria-label="Download reports">
+      <div class="flex gap-3 flex-shrink-0" aria-label="Scan actions">
         <UiButton variant="outline" aria-label="Download HTML report" @click="void downloadReport('html')">
           ↓ HTML Report
         </UiButton>
         <UiButton variant="outline" aria-label="Download CSV report" @click="void downloadReport('csv')">
           ↓ CSV Report
+        </UiButton>
+        <UiButton variant="destructive" @click="handleDeleteScan">
+          {{ confirmingDelete ? 'Confirm Delete' : 'Delete Scan' }}
         </UiButton>
       </div>
     </div>
