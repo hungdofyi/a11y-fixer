@@ -2,7 +2,7 @@ import { rm } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql, desc } from 'drizzle-orm';
-import { projects, scans, issues } from '@a11y-fixer/core';
+import { projects, scans, issues, vpatEntries } from '@a11y-fixer/core';
 
 /** CRUD routes for projects resource */
 const projectsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -87,7 +87,8 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
       // Remove orphaned screenshot directory for this scan
       await rm(join(dataDir, 'screenshots', String(s.id)), { recursive: true, force: true });
     }
-    // Delete scans, vpat entries, then project
+    // Delete vpat entries, scans, then project (order matters for FK constraints)
+    await fastify.db.delete(vpatEntries).where(eq(vpatEntries.projectId, id));
     await fastify.db.delete(scans).where(eq(scans.projectId, id));
     await fastify.db.delete(projects).where(eq(projects.id, id));
     reply.code(204).send();
