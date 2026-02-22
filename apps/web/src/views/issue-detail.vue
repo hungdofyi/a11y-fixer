@@ -56,7 +56,7 @@ function goBack(): void {
     </nav>
 
     <div v-if="store.loading" class="py-8 text-center text-slate-500" aria-busy="true">Loading issue…</div>
-    <p v-else-if="store.error" class="text-sm text-red-700 bg-red-50 border border-red-600 rounded-md px-4 py-3" role="alert">
+    <p v-else-if="store.error && store.error !== 'AI_AUTH_REQUIRED'" class="text-sm text-red-700 bg-red-50 border border-red-600 rounded-md px-4 py-3" role="alert">
       {{ store.error }}
     </p>
 
