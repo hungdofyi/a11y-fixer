@@ -139,7 +139,31 @@ export const useScanStore = defineStore('scans', () => {
         currentIssue.value = { ...currentIssue.value, fixSuggestion: JSON.stringify(result.fix) };
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'AI fix generation failed';
+      if (err instanceof Error) {
+        try {
+          const parsed = JSON.parse(err.message) as { code?: string; error?: string };
+          error.value = parsed.code === 'AI_AUTH_REQUIRED' ? 'AI_AUTH_REQUIRED' : (parsed.error ?? err.message);
+        } catch {
+          error.value = err.message;
+        }
+      } else {
+        error.value = 'AI fix generation failed';
+      }
+    } finally {
+      aiFixLoading.value = false;
+    }
+  }
+
+  /** Trigger server-side OAuth login flow, then retry AI fix */
+  async function loginAndGenerateAiFix(issueId: string): Promise<void> {
+    aiFixLoading.value = true;
+    error.value = null;
+    try {
+      await apiPost('/auth/login', {});
+      // Auth succeeded — now generate the fix
+      await generateAiFix(issueId);
+    } catch (err) {
+      error.value = err instanceof Error ? 'OAuth login failed. Check the browser window that opened for authorization.' : 'Login failed';
     } finally {
       aiFixLoading.value = false;
     }
@@ -160,5 +184,6 @@ export const useScanStore = defineStore('scans', () => {
     fetchIssues,
     fetchIssue,
     generateAiFix,
+    loginAndGenerateAiFix,
   };
 });

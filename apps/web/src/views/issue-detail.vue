@@ -155,7 +155,21 @@ function goBack(): void {
           </div>
         </UiCardHeader>
         <UiCardContent>
-          <p v-if="!issue.fixSuggestion && !store.aiFixLoading" class="text-sm text-slate-500">
+          <!-- Auth required: show login button -->
+          <div v-if="store.error === 'AI_AUTH_REQUIRED'" class="bg-amber-50 border border-amber-300 rounded-md px-4 py-3" role="alert">
+            <p class="text-sm font-medium text-amber-800 mb-2">Claude OAuth authentication required</p>
+            <p class="text-sm text-amber-700 mb-3">
+              You need to authenticate with Claude AI first. Click the button below to open the authorization page in your browser.
+            </p>
+            <UiButton
+              size="sm"
+              :disabled="store.aiFixLoading"
+              @click="void store.loginAndGenerateAiFix(issueId)"
+            >
+              {{ store.aiFixLoading ? 'Authenticating…' : 'Login with Claude & Generate Fix' }}
+            </UiButton>
+          </div>
+          <p v-else-if="!issue.fixSuggestion && !store.aiFixLoading" class="text-sm text-slate-500">
             No AI fix generated yet. Click "Generate AI Fix" to request one.
           </p>
           <p v-else-if="!issue.fixSuggestion && store.aiFixLoading" class="text-sm text-slate-500" aria-live="polite">

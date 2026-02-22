@@ -13,6 +13,7 @@ import issuesRoutes from './routes/issues.js';
 import reportsRoutes from './routes/reports.js';
 import vpatRoutes from './routes/vpat.js';
 import sseRoutes from './routes/sse.js';
+import authRoutes from './routes/auth.js';
 
 /** Build and configure the Fastify application */
 export async function buildApp() {
@@ -56,6 +57,7 @@ export async function buildApp() {
   await fastify.register(reportsRoutes, { prefix: '/api/reports' });
   await fastify.register(vpatRoutes, { prefix: '/api/vpat' });
   await fastify.register(sseRoutes, { prefix: '/api/scans' });
+  await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(screenshotServePlugin);
 
   // Serve Vue SPA static files (production only — skipped if dist not found)
