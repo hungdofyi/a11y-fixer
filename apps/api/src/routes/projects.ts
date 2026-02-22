@@ -1,3 +1,5 @@
+import { rm } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql, desc } from 'drizzle-orm';
 import { projects, scans, issues } from '@a11y-fixer/core';
@@ -78,9 +80,12 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(404).send({ error: 'Not found' });
     }
     // Delete issues for all scans in this project
+    const dataDir = process.env['A11Y_DATA_DIR'] ?? resolve(process.cwd(), 'data');
     const projectScans = await fastify.db.select({ id: scans.id }).from(scans).where(eq(scans.projectId, id));
     for (const s of projectScans) {
       await fastify.db.delete(issues).where(eq(issues.scanId, s.id));
+      // Remove orphaned screenshot directory for this scan
+      await rm(join(dataDir, 'screenshots', String(s.id)), { recursive: true, force: true });
     }
     // Delete scans, vpat entries, then project
     await fastify.db.delete(scans).where(eq(scans.projectId, id));

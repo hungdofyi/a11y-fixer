@@ -14,9 +14,16 @@ function isPublicUrl(input: string): boolean {
     const host = parsed.hostname.toLowerCase();
     // Block internal/private IPs and metadata endpoints
     if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+    if (host === '0.0.0.0') return false;
     if (host.startsWith('10.') || host.startsWith('192.168.')) return false;
+    // Block 172.16.0.0/12 range (Docker/K8s internal networks)
+    if (host.startsWith('172.') && parseInt(host.split('.')[1]!, 10) >= 16 && parseInt(host.split('.')[1]!, 10) <= 31) return false;
     if (host === '169.254.169.254') return false; // Cloud metadata
     if (host.endsWith('.internal') || host.endsWith('.local')) return false;
+    // Block IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1)
+    if (host.startsWith('::ffff:')) return false;
+    // Block decimal IP encoding (e.g. http://2130706433 → 127.0.0.1)
+    if (/^\d+$/.test(host)) return false;
     return true;
   } catch {
     return false;
