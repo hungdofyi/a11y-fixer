@@ -40,10 +40,10 @@ async function handleResponse<T>(res: Response): Promise<T> {
   }
   if (res.status === 204) return undefined as T;
   const contentType = res.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) {
-    return res.json() as Promise<T>;
+  if (!contentType.includes('application/json')) {
+    throw new ApiError(res.status, 'Unexpected response from server (not JSON). Is the API running?');
   }
-  return res.text() as unknown as T;
+  return res.json() as Promise<T>;
 }
 
 /** GET request */
