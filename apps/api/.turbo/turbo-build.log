@@ -1,0 +1,4 @@
+
+> @a11y-fixer/api@0.1.0 build /home/hungdoitbk/hung-repo/a11y-fixer/apps/api
+> tsc -b
+

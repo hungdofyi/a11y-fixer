@@ -1,0 +1,14 @@
+
+> @a11y-fixer/report-generator@0.1.0 lint /home/hungdoitbk/hung-repo/a11y-fixer/packages/report-generator
+> eslint src/
+
+
+/home/hungdoitbk/hung-repo/a11y-fixer/packages/report-generator/src/vpat/docx-renderer.ts
+  11:3   warning  'BorderStyle' is defined but never used        @typescript-eslint/no-unused-vars
+  14:26  warning  'ConformanceStatus' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/hungdoitbk/hung-repo/a11y-fixer/packages/report-generator/src/vpat/vpat-template-data.ts
+  1:10  warning  'WCAG_CRITERIA_MAP' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 3 problems (0 errors, 3 warnings)
+

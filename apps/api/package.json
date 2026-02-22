@@ -1,0 +1,27 @@
+{
+  "name": "@a11y-fixer/api",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.28.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/swagger": "^8.15.0",
+    "@fastify/swagger-ui": "^4.1.0",
+    "@a11y-fixer/core": "workspace:*",
+    "@a11y-fixer/scanner": "workspace:*",
+    "@a11y-fixer/rules-engine": "workspace:*",
+    "@a11y-fixer/ai-engine": "workspace:*",
+    "@a11y-fixer/report-generator": "workspace:*",
+    "drizzle-orm": "^0.38.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  }
+}

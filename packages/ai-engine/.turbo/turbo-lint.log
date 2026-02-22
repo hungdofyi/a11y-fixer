@@ -1,0 +1,13 @@
+
+> @a11y-fixer/ai-engine@0.1.0 lint /home/hungdoitbk/hung-repo/a11y-fixer/packages/ai-engine
+> eslint src/
+
+
+/home/hungdoitbk/hung-repo/a11y-fixer/packages/ai-engine/src/auth/token-storage.ts
+  14:7  warning  'TAG_LENGTH' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/hungdoitbk/hung-repo/a11y-fixer/packages/ai-engine/src/client/claude-client.ts
+  51:34  warning  'maxTokens' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+

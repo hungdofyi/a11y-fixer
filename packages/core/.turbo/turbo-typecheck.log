@@ -1,0 +1,4 @@
+
+> @a11y-fixer/core@0.1.0 typecheck /home/hungdoitbk/hung-repo/a11y-fixer/packages/core
+> tsc --noEmit
+

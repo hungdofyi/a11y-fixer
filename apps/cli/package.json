@@ -1,0 +1,36 @@
+{
+  "name": "@a11y-fixer/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for accessibility scanning, fixing, and VPAT reporting",
+  "type": "module",
+  "bin": {
+    "a11y": "./bin/run.js"
+  },
+  "main": "dist/index.js",
+  "files": ["bin", "dist", "oclif.manifest.json"],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "oclif": {
+    "bin": "a11y",
+    "dirname": "a11y-fixer",
+    "commands": "./dist/commands",
+    "topicSeparator": " "
+  },
+  "dependencies": {
+    "@oclif/core": "^3.27.0",
+    "@a11y-fixer/core": "workspace:*",
+    "@a11y-fixer/scanner": "workspace:*",
+    "@a11y-fixer/rules-engine": "workspace:*",
+    "@a11y-fixer/ai-engine": "workspace:*",
+    "@a11y-fixer/report-generator": "workspace:*",
+    "cli-table3": "^0.6.5",
+    "drizzle-orm": "^0.38.0",
+    "ora": "^8.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

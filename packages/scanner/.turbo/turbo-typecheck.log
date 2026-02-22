@@ -1,0 +1,4 @@
+
+> @a11y-fixer/scanner@0.1.0 typecheck /home/hungdoitbk/hung-repo/a11y-fixer/packages/scanner
+> tsc --noEmit
+
