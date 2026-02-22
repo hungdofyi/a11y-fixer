@@ -68,7 +68,8 @@ COPY --from=builder /app/apps/api/dist apps/api/dist
 # Copy Vue SPA build output
 COPY --from=builder /app/apps/web/dist apps/web/dist
 
-# Install Playwright browsers
+# Install Playwright browsers into a known location
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 RUN npx playwright install chromium
 
 # Create data directory for SQLite and screenshots
