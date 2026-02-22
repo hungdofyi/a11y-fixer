@@ -26,8 +26,8 @@ function resolveAxeSource(): string {
  * Returns raw AxeResults from axe-core for further normalization.
  */
 export async function scanPage(page: Page, config: BrowserScanConfig): Promise<AxeResults> {
-  const timeout = config.timeout ?? 30000;
-  const waitUntil = config.waitStrategy ?? 'load';
+  const timeout = config.timeout ?? 60000;
+  const waitUntil = config.waitStrategy ?? 'domcontentloaded';
 
   // Navigate to target URL
   await page.goto(config.url, { timeout, waitUntil });
