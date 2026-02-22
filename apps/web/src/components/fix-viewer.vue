@@ -54,11 +54,7 @@ const parsedFix = computed<ParsedFix | null>(() => {
     <template v-else-if="fixSuggestion">
       <div v-if="element" class="flex flex-col gap-2">
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-500">Affected Element</h3>
-        <pre
-          class="bg-slate-800 text-slate-100 p-4 rounded-md overflow-x-auto text-xs leading-relaxed whitespace-pre-wrap break-all"
-          tabindex="0"
-          aria-label="Affected HTML element"
-        ><code>{{ element }}</code></pre>
+        <HtmlSnippetViewer :html="element" />
       </div>
       <div class="flex flex-col gap-2">
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-500">Fix Suggestion</h3>
@@ -76,11 +72,7 @@ const parsedFix = computed<ParsedFix | null>(() => {
     <!-- Element only, no fix -->
     <div v-else class="flex flex-col gap-2">
       <h3 class="text-xs font-bold uppercase tracking-wide text-slate-500">Affected Element</h3>
-      <pre
-        class="bg-slate-800 text-slate-100 p-4 rounded-md overflow-x-auto text-xs leading-relaxed whitespace-pre-wrap break-all"
-        tabindex="0"
-        aria-label="Affected HTML element"
-      ><code>{{ element }}</code></pre>
+      <HtmlSnippetViewer :html="element" />
     </div>
   </div>
 </template>

@@ -135,7 +135,7 @@ export const useScanStore = defineStore('scans', () => {
         `/issues/${issueId}/ai-fix`,
         {},
       );
-      if (currentIssue.value && currentIssue.value.id === issueId) {
+      if (currentIssue.value && String(currentIssue.value.id) === String(issueId)) {
         currentIssue.value = { ...currentIssue.value, fixSuggestion: JSON.stringify(result.fix) };
       }
     } catch (err) {
