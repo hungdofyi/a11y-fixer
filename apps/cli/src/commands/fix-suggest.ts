@@ -2,6 +2,7 @@ import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../base-command.js';
 import { createSpinner } from '../utils/progress.js';
 import { formatJson } from '../formatters/json-formatter.js';
+import { formatFixSuggestions } from '../formatters/fix-suggest-formatter.js';
 import type { Violation } from '@a11y-fixer/core';
 
 export default class FixSuggest extends BaseCommand {
@@ -56,6 +57,7 @@ export default class FixSuggest extends BaseCommand {
     const suggestions = violations.map((v) => ({
       ruleId: v.ruleId,
       description: v.description,
+      severity: v.severity,
       fix: registry.getFix(v),
     }));
 
@@ -84,15 +86,7 @@ export default class FixSuggest extends BaseCommand {
     if (flags.format === 'json') {
       this.writeOutput(formatJson(suggestions), flags);
     } else {
-      for (const s of suggestions) {
-        this.log(`\n[${s.ruleId}] ${s.description}`);
-        if (s.fix) {
-          this.log(`  Fix: ${s.fix.description}`);
-          if (s.fix.codeSnippetAfter) this.log(`  Code: ${s.fix.codeSnippetAfter}`);
-        } else {
-          this.log('  No automated fix available.');
-        }
-      }
+      this.log('\n' + formatFixSuggestions(suggestions));
     }
   }
 }
