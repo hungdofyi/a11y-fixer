@@ -25,11 +25,14 @@ export function useScanProgress(onDone: () => void) {
     progressPct.value = undefined;
 
     const sseUrl = apiUrl(`/scans/${scanId}/progress`);
+    let finished = false;
     activeSse = useSse<ScanProgressEvent>(sseUrl, {
       onMessage(data) {
+        if (finished) return; // guard against double-fire from buffered events
         progressStatus.value = data.status;
         progressPct.value = data.percent;
         if (data.status === 'completed' || data.status === 'failed') {
+          finished = true;
           activeSse?.close();
           activeSse = null;
           progressScanId.value = null;

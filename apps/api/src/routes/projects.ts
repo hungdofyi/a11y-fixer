@@ -64,7 +64,7 @@ const projectsRoutes: FastifyPluginAsync = async (fastify) => {
         completedAt: scans.completedAt,
         totalPages: scans.totalPages,
         createdAt: scans.createdAt,
-        violationCount: sql<number>`(SELECT count(*) FROM issues WHERE issues.scan_id = ${scans.id})`,
+        violationCount: sql<number>`(SELECT count(*) FROM issues WHERE issues.scan_id = "scans"."id")`,
       })
       .from(scans)
       .where(eq(scans.projectId, id))

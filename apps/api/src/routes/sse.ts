@@ -25,41 +25,50 @@ const sseRoutes: FastifyPluginAsync = async (fastify) => {
 
     let pollCount = 0;
     let lastStatus = '';
+    let ended = false;
 
     const sendEvent = (data: Record<string, unknown>) => {
-      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (!ended) reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const endStream = () => {
+      if (ended) return;
+      ended = true;
+      reply.raw.end();
     };
 
     const poll = async () => {
+      if (ended) return;
       try {
         const [scan] = await fastify.db.select().from(scans).where(eq(scans.id, scanId));
 
         if (!scan) {
           sendEvent({ type: 'error', message: 'Scan not found' });
-          reply.raw.end();
+          endStream();
           return;
         }
+
+        const terminal = scan.status === 'completed' || scan.status === 'failed';
 
         if (scan.status !== lastStatus) {
           lastStatus = scan.status;
           sendEvent({ type: 'status', scanId, status: scan.status });
         }
 
-        const terminal = scan.status === 'completed' || scan.status === 'failed';
         if (terminal || pollCount >= MAX_POLL_COUNT) {
           sendEvent({ type: 'done', scanId, status: scan.status });
-          reply.raw.end();
+          endStream();
           return;
         }
 
         pollCount++;
-        setTimeout(() => { poll().catch(() => reply.raw.end()); }, POLL_INTERVAL_MS);
+        setTimeout(() => { poll().catch(() => endStream()); }, POLL_INTERVAL_MS);
       } catch {
-        reply.raw.end();
+        endStream();
       }
     };
 
-    req.raw.on('close', () => { reply.raw.end(); });
+    req.raw.on('close', endStream);
 
     await poll();
   });
