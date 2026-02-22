@@ -156,20 +156,23 @@ ScanResult {
 
 ---
 
-### REST API (apps/api): Fastify 4.28+ | 8 Route Modules
+### REST API (apps/api): Fastify 4.28+ | 10 Route Modules
 
 **Routes**:
 - `GET/POST /projects` - Project CRUD
-- `POST /scans` - Initiate scan
+- `POST /scans` - Initiate scan (accepts optional `authSessionId` for authenticated browsing)
 - `GET /scans/:id/sse` - Server-Sent Events (real-time progress)
 - `GET /scans/:id/issues` - Violations (reconstructs ViolationNode from DB columns)
 - `GET /screenshots/:filename` - Serve element screenshots with visual context
-- `POST /api/issues/:id/ai-fix` - Generate AI fix for violation [NEW]
+- `POST /api/issues/:id/ai-fix` - Generate AI fix for violation
 - `GET /reports/:id` - Report generation (CSV exporter with fallback for empty nodes)
 - `GET /vpat/:id` - VPAT export
+- `POST /api/auth-session` - Create headed Playwright session for authenticated scanning [NEW]
+- `POST /api/auth-session/:id/capture` - Capture authenticated session storageState [NEW]
+- `DELETE /api/auth-session/:id` - Cleanup session and cached storageState [NEW]
 - Swagger UI at `/docs`
 
-**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes, AI-powered fixes
+**Features**: CORS, JWT-compatible auth, Fastify validation schemas, type-safe routes, AI-powered fixes, server-side popup authentication
 
 ---
 
@@ -287,6 +290,55 @@ File patterns (.vue files)
     ↓
 ScanResult
 ```
+
+### Authenticated Scanning (Server-Side Popup) [NEW]
+```
+User: Click "Requires Login" toggle in scan form
+    ↓
+[Frontend: Web UI Form]
+    ├─ Toggle enables "Authenticate" button
+    ├─ On submit, calls POST /api/auth-session
+    └─ Opens popup window to captured auth-session
+    ↓
+[Backend: auth-session.ts]
+    ├─ POST /api/auth-session → Create headed Playwright browser
+    ├─ In-memory session store with 3-session limit
+    ├─ Auto-cleanup timer (5 min expiry)
+    └─ Return sessionId + popup URL
+    ↓
+[User: Authenticate in Popup]
+    ├─ Login to target site (if needed)
+    ├─ Navigate authenticated pages
+    └─ Click "Ready" button to capture state
+    ↓
+[Backend: POST /api/auth-session/:id/capture]
+    ├─ Extract storageState (cookies, localStorage, sessionStorage)
+    ├─ Save to temp file
+    ├─ Store path in memory map (keyed by sessionId)
+    └─ Return success
+    ↓
+[Backend: Scan Route]
+    ├─ Client submits: { authSessionId: "...", url: "..." }
+    ├─ Validate & resolve storageState path server-side
+    ├─ Pass to browser scanner config
+    └─ Browser applies stored auth state when scanning
+    ↓
+[Browser Scanner]
+    ├─ Launch Playwright with restored storageState
+    ├─ Cookies/sessionStorage already set
+    ├─ Navigate to authenticated pages
+    └─ Run axe-core + accessibility checks
+    ↓
+[Cleanup]
+    ├─ DELETE /api/auth-session/:id
+    ├─ Close Playwright browser
+    ├─ Delete temp storageState file
+    └─ Remove from session map
+    ↓
+ScanResult (violations from authenticated pages)
+```
+
+**Security**: SSRF protection via `isPublicUrl()` validation (blocks private IPs, localhost, cloud metadata endpoints)
 
 ### Keyboard Testing
 ```
@@ -666,29 +718,39 @@ User: a11y scan https://example.com --ai --output report.docx
 ### Via REST API (Multi-User Dashboard)
 
 ```
-User (Web): Click "New Scan" → POST /scans
+User (Web): Click "New Scan" → Optional: Toggle "Requires Login" → POST /scans
 
-1. Request
+1. Optional: Authentication Session (if "Requires Login" checked)
+   ├─ POST /api/auth-session → Create headed Playwright browser
+   ├─ Popup opens for user to authenticate at target site
+   ├─ User clicks "Ready" after login
+   ├─ POST /api/auth-session/:id/capture → Save storageState (cookies, localStorage)
+   └─ storageState path cached server-side by sessionId
+
+2. Request
    POST /scans
    Body: {
      projectId: 1,
      url: "https://example.com",
-     modes: ["browser", "static"],
-     aiEnabled: true
+     scanType: "browser",
+     authSessionId: "..." (optional, if authenticated)
    }
 
-2. Fastify Route Handler
+3. Fastify Route Handler
    ├─ Validate input schema
+   ├─ Resolve storageState path from authSessionId (server-side, never from client)
+   ├─ SSRF check: Validate URL via isPublicUrl()
    ├─ Authenticate user (OAuth or API key)
    ├─ Create scan record (status='pending')
    ├─ Save to SQLite
    └─ Return { scanId: 5, status: 'pending' }
 
-3. Background Processing
-   ├─ Spawn scanner (browser + static + optional keyboard)
+4. Background Processing
+   ├─ Spawn scanner (browser with optional restored auth state)
    ├─ Update scan.status='running'
    ├─ For each page/file:
    │  ├─ Notify SSE subscribers: { event: 'progress', ... }
+   │  ├─ If authSessionId: Apply storageState to Playwright context (cookies, auth)
    │  ├─ Enrich with rules engine
    │  └─ Call AI engine for fixes
    ├─ Save all issues to database

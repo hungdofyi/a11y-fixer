@@ -25,6 +25,7 @@ Accessibility compliance is critical yet time-consuming to audit and remediate. 
 
 **Scanning**
 - Browser scanning: Detect DOM violations using axe-core (47+ rules)
+- Authenticated scanning: Server-side popup-based login flow with storageState capture [NEW]
 - Static analysis: Analyze Vue SFCs for accessibility anti-patterns
 - Keyboard testing: Validate focus management, tab order, skip links
 - Multi-page crawling: AsyncGenerator pattern for large sites

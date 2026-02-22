@@ -5,30 +5,8 @@ import { scans, issues, projects } from '@a11y-fixer/core';
 import type { Violation } from '@a11y-fixer/core';
 import { scanUrl, scanFiles } from '@a11y-fixer/scanner';
 import type { ScreenshotResult } from '@a11y-fixer/scanner';
-
-/** Validate URL is a public HTTP(S) URL (prevent SSRF) */
-function isPublicUrl(input: string): boolean {
-  try {
-    const parsed = new URL(input);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-    const host = parsed.hostname.toLowerCase();
-    // Block internal/private IPs and metadata endpoints
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
-    if (host === '0.0.0.0') return false;
-    if (host.startsWith('10.') || host.startsWith('192.168.')) return false;
-    // Block 172.16.0.0/12 range (Docker/K8s internal networks)
-    if (host.startsWith('172.') && parseInt(host.split('.')[1]!, 10) >= 16 && parseInt(host.split('.')[1]!, 10) <= 31) return false;
-    if (host === '169.254.169.254') return false; // Cloud metadata
-    if (host.endsWith('.internal') || host.endsWith('.local')) return false;
-    // Block IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1)
-    if (host.startsWith('::ffff:')) return false;
-    // Block decimal IP encoding (e.g. http://2130706433 → 127.0.0.1)
-    if (/^\d+$/.test(host)) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { isPublicUrl } from '../utils/is-public-url.js';
+import { resolveStorageStatePath, cleanupCapturedPath } from './auth-session.js';
 
 /** Validate directory path is under allowed workspace root (prevent path traversal) */
 function isSafePath(dir: string): boolean {
@@ -42,7 +20,7 @@ function isSafePath(dir: string): boolean {
 const scansRoutes: FastifyPluginAsync = async (fastify) => {
   // POST / - trigger a new scan
   fastify.post<{
-    Body: { projectId: number; scanType: 'browser' | 'static'; url?: string; dir?: string };
+    Body: { projectId: number; scanType: 'browser' | 'static'; url?: string; dir?: string; authSessionId?: string };
   }>(
     '/',
     {
@@ -55,12 +33,19 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
             scanType: { type: 'string', enum: ['browser', 'static'] },
             url: { type: 'string' },
             dir: { type: 'string' },
+            authSessionId: { type: 'string' },
           },
         },
       },
     },
     async (req, reply) => {
-      const { projectId, scanType, dir } = req.body;
+      const { projectId, scanType, dir, authSessionId } = req.body;
+
+      // Resolve storageStatePath server-side from authSessionId (never from client)
+      const storageStatePath = authSessionId ? resolveStorageStatePath(authSessionId) : undefined;
+      if (authSessionId && !storageStatePath) {
+        return reply.code(400).send({ error: 'Auth session not found or expired. Please log in again.' });
+      }
 
       // Verify project exists
       const [project] = await fastify.db
@@ -97,7 +82,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Run scan in background
       setImmediate(() => {
-        runScanBackground(fastify.db, scanId, scanType, url, dir).catch((err: unknown) => {
+        runScanBackground(fastify.db, scanId, scanType, url, dir, storageStatePath, authSessionId).catch((err: unknown) => {
           fastify.log.error({ err, scanId }, 'Background scan failed');
         });
       });
@@ -128,6 +113,8 @@ async function runScanBackground(
   scanType: 'browser' | 'static',
   url?: string,
   dir?: string,
+  storageStatePath?: string,
+  authSessionId?: string,
 ): Promise<void> {
   try {
     let violations: Violation[] = [];
@@ -140,6 +127,7 @@ async function runScanBackground(
         captureScreenshots: true,
         scanId,
         dataDir,
+        ...(storageStatePath ? { storageState: storageStatePath } : {}),
       });
       violations = result.violations;
       scannedCount = result.scannedCount;
@@ -228,6 +216,11 @@ async function runScanBackground(
         config: JSON.stringify({ error: message }),
       })
       .where(eq(scans.id, scanId));
+  } finally {
+    // Clean up captured storageState temp file via auth-session module
+    if (authSessionId) {
+      await cleanupCapturedPath(authSessionId);
+    }
   }
 }
 

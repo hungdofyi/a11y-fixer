@@ -49,12 +49,13 @@ onMounted(async () => {
   if (running) watchScanProgress(running.id);
 });
 
-async function handleScanSubmit(payload: { scanType: string; url: string }): Promise<void> {
+async function handleScanSubmit(payload: { scanType: string; url: string; authSessionId?: string }): Promise<void> {
   submitting.value = true;
   const scan = await scanStore.triggerScan({
     projectId: projectId.value,
     scanType: payload.scanType,
     url: payload.url,
+    ...(payload.authSessionId ? { authSessionId: payload.authSessionId } : {}),
   });
   submitting.value = false;
   if (scan) {

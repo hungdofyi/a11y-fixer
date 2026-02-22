@@ -1,7 +1,7 @@
 // Pinia store for scans and issues associated with the current project
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { apiGet, apiPost } from '../composables/use-api.js';
+import { apiGet, apiPost, apiDelete } from '../composables/use-api.js';
 
 export interface Scan {
   id: string;
@@ -35,6 +35,7 @@ export interface TriggerScanInput {
   projectId: string;
   scanType: string;
   url: string;
+  authSessionId?: string;
 }
 
 export interface IssuesPage {
@@ -154,6 +155,52 @@ export const useScanStore = defineStore('scans', () => {
     }
   }
 
+  /** Auth session state for server-side popup login flow */
+  const authSessionId = ref<string | null>(null);
+  const authSessionLoading = ref(false);
+
+  async function startAuthSession(url: string): Promise<void> {
+    authSessionLoading.value = true;
+    error.value = null;
+    try {
+      const result = await apiPost<{ sessionId: string }>('/auth-session', { url });
+      authSessionId.value = result.sessionId;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to launch auth browser';
+    } finally {
+      authSessionLoading.value = false;
+    }
+  }
+
+  async function captureAuthSession(): Promise<string | null> {
+    if (!authSessionId.value) return null;
+    const sessionId = authSessionId.value;
+    authSessionLoading.value = true;
+    error.value = null;
+    try {
+      await apiPost<{ captured: boolean }>(
+        `/auth-session/${sessionId}/capture`, {},
+      );
+      authSessionId.value = null;
+      return sessionId;
+    } catch (err) {
+      authSessionId.value = null; // session is gone server-side after error cleanup (M2)
+      error.value = err instanceof Error ? err.message : 'Failed to capture auth session';
+      return null;
+    } finally {
+      authSessionLoading.value = false;
+    }
+  }
+
+  async function cancelAuthSession(): Promise<void> {
+    if (!authSessionId.value) return;
+    error.value = null; // clear any prior errors (L3)
+    try {
+      await apiDelete(`/auth-session/${authSessionId.value}`);
+    } catch { /* best effort */ }
+    authSessionId.value = null;
+  }
+
   /** Pending auth state for code-paste flow */
   const pendingAuthState = ref<string | null>(null);
   /** Issue ID waiting for auth completion */
@@ -210,6 +257,11 @@ export const useScanStore = defineStore('scans', () => {
     triggerScan,
     fetchIssues,
     fetchIssue,
+    authSessionId,
+    authSessionLoading,
+    startAuthSession,
+    captureAuthSession,
+    cancelAuthSession,
     pendingAuthState,
     pendingAuthIssueId,
     generateAiFix,

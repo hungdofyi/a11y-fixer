@@ -225,20 +225,29 @@ scanner → rules-engine → ai-engine → report-generator
 
 ---
 
-### apps/api (Fastify REST API, ~10 files, ~450 LOC)
+### apps/api (Fastify REST API, ~11 files, ~530 LOC)
 
-**Purpose**: HTTP REST API with real-time scan progress via SSE.
+**Purpose**: HTTP REST API with real-time scan progress via SSE and authenticated scanning support.
 
 **Key Files**:
 - `src/server.ts` - Fastify app setup, CORS, Swagger
 - `src/routes/projects.ts` - Project CRUD endpoints
-- `src/routes/scans.ts` - Scan management
-- `src/routes/issues.ts` - Violation queries (now includes failureSummary, helpUrl) [UPDATED]
-- `src/routes/screenshots.ts` - Screenshot serving (GET /screenshots/:filename) [NEW]
+- `src/routes/scans.ts` - Scan management (accepts optional authSessionId) [UPDATED]
+- `src/routes/auth-session.ts` - Create/capture/cleanup authenticated Playwright sessions [NEW]
+- `src/routes/issues.ts` - Violation queries (now includes failureSummary, helpUrl)
+- `src/routes/screenshots.ts` - Screenshot serving (GET /screenshots/:filename)
 - `src/routes/sse.ts` - Server-Sent Events for real-time progress
 - `src/routes/reports.ts` - Report generation
 - `src/routes/vpat.ts` - VPAT export
+- `src/utils/is-public-url.ts` - SSRF validation utility (blocks private IPs, localhost) [NEW]
 - `src/middleware/auth.ts` - JWT authentication (optional)
+
+**New Auth-Session Flow**:
+- `POST /api/auth-session` → Create headed Playwright browser (max 3 concurrent)
+- `POST /api/auth-session/:id/capture` → Save storageState (cookies, auth tokens) to temp file
+- `DELETE /api/auth-session/:id` → Cleanup browser and cached storageState
+- Auto-cleanup: Sessions expire after 5 minutes
+- SSRF Protection: isPublicUrl() validates all URLs before scanning
 
 **Main Exports**:
 - Fastify instance with all routes registered
@@ -246,20 +255,26 @@ scanner → rules-engine → ai-engine → report-generator
 
 ---
 
-### apps/web (Vue 3 + Vite SPA, ~15 files, ~350 LOC)
+### apps/web (Vue 3 + Vite SPA, ~16 files, ~420 LOC)
 
-**Purpose**: Interactive web dashboard for scanning, reporting, VPAT generation.
+**Purpose**: Interactive web dashboard for scanning, reporting, VPAT generation with authenticated scanning support.
 
 **Key Files**:
 - `src/main.ts` - Vue app entry point
 - `src/router/index.ts` - Vue Router configuration
-- `src/stores/` - Pinia state (projects, scans, auth)
+- `src/stores/scan-store.ts` - Pinia state (projects, scans, auth sessions) [UPDATED]
+  - New: `captureAuthSession()` action for authenticated scanning flow
 - `src/views/` - Page components
   - `projects.vue` - Project dashboard
   - `scans.vue` - Scan results viewer
   - `vpat-wizard.vue` - VPAT interactive form
-  - `issue-detail.vue` - Rich issue detail with screenshots, HTML snippets, fix steps [NEW/ENHANCED]
-- `src/components/` - Reusable UI components
+  - `project-detail.vue` - Updated to pass authSessionId to scan trigger [UPDATED]
+  - `issue-detail.vue` - Rich issue detail with screenshots, HTML snippets, fix steps
+- `src/components/new-scan-form.vue` - Auth form with "Requires Login" toggle [UPDATED]
+  - Toggle option for authenticated page scanning
+  - Popup window for user authentication at target site
+  - Passes authSessionId to backend scan request
+- `src/components/` - Other reusable UI components
 - `src/api/` - API client (fetch wrapper)
 
 **Styling**:
@@ -283,12 +298,12 @@ scanner → rules-engine → ai-engine → report-generator
 | **Packages Subtotal** | **84** | **3878** | — |
 | | | | |
 | cli | 8 | 280 | CLI commands |
-| api | 11 | 480 | REST routes + screenshots [UPDATED] |
-| web | 15 | 370 | Vue SPA + issue-detail [UPDATED] |
-| cli | 10 | 320 | CLI commands + issue commands [UPDATED] |
-| **Apps Subtotal** | **36** | **1170** | — |
+| api | 11 | 530 | REST routes + auth-session + screenshots [UPDATED] |
+| web | 16 | 420 | Vue SPA + auth flow + new-scan-form [UPDATED] |
+| cli | 10 | 320 | CLI commands + issue commands |
+| **Apps Subtotal** | **36** | **1250** | — |
 | | | | |
-| **TOTAL** | **119** | **4958** | 8 packages |
+| **TOTAL** | **120** | **5128** | 8 packages |
 
 ## Build & Runtime
 
@@ -297,12 +312,13 @@ scanner → rules-engine → ai-engine → report-generator
 **Runtime**: Node.js 18+ with pnpm workspaces
 
 **Dependencies**:
-- playwright, axe-core (scanning)
+- playwright, axe-core (scanning + authenticated sessions)
 - @vue/compiler-sfc, @vue/compiler-core (static analysis)
 - drizzle-orm, better-sqlite3 (database)
 - @anthropic-ai/claude-agent-sdk (AI)
 - docx (VPAT generation)
 - fast-glob, minimatch (file discovery)
+- fastify (REST API)
 
 ## Standards & Patterns
 
