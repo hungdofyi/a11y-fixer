@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { writeFile, unlink } from 'node:fs/promises';
+import { writeFile, unlink, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { chromium } from 'playwright';
 import type { Browser, BrowserContext } from 'playwright';
 import { isPublicUrl } from '../utils/is-public-url.js';
+
+/** Persistent browser profile — preserves cookies/sessions so users don't re-login every time */
+const PROFILE_DIR = resolve(
+  process.env['A11Y_DATA_DIR'] ?? resolve(process.cwd(), 'data'),
+  'browser-profile',
+);
 
 /** Max concurrent auth sessions to prevent resource exhaustion */
 const MAX_SESSIONS = 3;
@@ -14,7 +20,8 @@ const MAX_SESSIONS = 3;
 const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface AuthSession {
-  browser: Browser;
+  /** When using launchPersistentContext, browser is null (context owns the lifecycle) */
+  browser: Browser | null;
   context: BrowserContext;
   timer: NodeJS.Timeout;
 }
@@ -32,7 +39,9 @@ async function cleanupSession(id: string): Promise<void> {
   clearTimeout(session.timer);
   sessions.delete(id);
   try { await session.context.close(); } catch { /* already closed */ }
-  try { await session.browser.close(); } catch { /* already closed */ }
+  if (session.browser) {
+    try { await session.browser.close(); } catch { /* already closed */ }
+  }
 }
 
 /** Delete captured storageState temp file and remove from map */
@@ -87,9 +96,13 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       try {
-        const browser = await chromium.launch({ headless: false });
-        const context = await browser.newContext();
-        const page = await context.newPage();
+        // Use persistent profile so cookies/sessions survive across auth sessions
+        await mkdir(PROFILE_DIR, { recursive: true });
+        const context = await chromium.launchPersistentContext(PROFILE_DIR, {
+          headless: false,
+          viewport: { width: 1280, height: 720 },
+        });
+        const page = context.pages()[0] ?? await context.newPage();
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         // Page left open intentionally for user to log in interactively
 
@@ -99,7 +112,7 @@ const authSessionRoutes: FastifyPluginAsync = async (fastify) => {
           void cleanupSession(sessionId);
         }, SESSION_TIMEOUT_MS);
 
-        sessions.set(sessionId, { browser, context, timer });
+        sessions.set(sessionId, { browser: null, context, timer });
         reply.send({ sessionId });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
