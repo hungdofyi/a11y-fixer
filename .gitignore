@@ -38,7 +38,6 @@ yarn-error.log*
 # package manager
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
 # semantic-release
 .nyc_output
@@ -77,9 +76,13 @@ __pycache__
 prompt.md
 ck.md
 
-# Hook diagnostics logs
-.claude/hooks/.logs/
+# AI tooling (local config, not project code)
+.claude/
+.opencode/
+.gemini/
 
-# Gemini CLI settings (symlink to .claude/.mcp.json)
-.gemini/settings.json
-.claude/settings.bak.json
+# Runtime data
+apps/api/data/
+
+# Generated files
+repomix-output.xml
