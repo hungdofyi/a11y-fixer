@@ -14,17 +14,24 @@ export function useScanProgress(onDone: () => void) {
   const progressStatus = ref('');
   const progressPct = ref<number | undefined>(undefined);
 
+  let activeSse: ReturnType<typeof useSse> | null = null;
+
   function watchScanProgress(scanId: string): void {
+    // Close any existing SSE before starting a new one
+    activeSse?.close();
+
     progressScanId.value = scanId;
     progressStatus.value = 'starting';
     progressPct.value = undefined;
 
     const sseUrl = apiUrl(`/scans/${scanId}/progress`);
-    useSse<ScanProgressEvent>(sseUrl, {
+    activeSse = useSse<ScanProgressEvent>(sseUrl, {
       onMessage(data) {
         progressStatus.value = data.status;
         progressPct.value = data.percent;
         if (data.status === 'completed' || data.status === 'failed') {
+          activeSse?.close();
+          activeSse = null;
           progressScanId.value = null;
           onDone();
         }
