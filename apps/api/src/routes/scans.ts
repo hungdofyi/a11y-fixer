@@ -8,6 +8,7 @@ import type { ScreenshotResult } from '@a11y-fixer/scanner';
 import { aggregateConformance, mergeScanResults } from '@a11y-fixer/rules-engine';
 import { isPublicUrl } from '../utils/is-public-url.js';
 import { resolveStorageStatePath, cleanupCapturedPath } from './auth-session.js';
+import { syncConformanceToVpat } from '../utils/sync-conformance-to-vpat.js';
 
 /** Validate directory path is under allowed workspace root (prevent path traversal) */
 function isSafePath(dir: string): boolean {
@@ -97,7 +98,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
       // Run scan in background
       const { enableKeyboard, maxPages } = req.body;
       setImmediate(() => {
-        runScanBackground(fastify.db, scanId, scanType, url, dir, storageStatePath, authSessionId, { enableKeyboard, maxPages }).catch((err: unknown) => {
+        runScanBackground(fastify.db, scanId, projectId, scanType, url, dir, storageStatePath, authSessionId, { enableKeyboard, maxPages }).catch((err: unknown) => {
           fastify.log.error({ err, scanId }, 'Background scan failed');
         });
       });
@@ -125,6 +126,7 @@ const scansRoutes: FastifyPluginAsync = async (fastify) => {
 async function runScanBackground(
   db: ReturnType<typeof import('@a11y-fixer/core').createDb>,
   scanId: number,
+  projectId: number,
   scanType: 'browser' | 'static' | 'site',
   url?: string,
   dir?: string,
@@ -244,8 +246,17 @@ async function runScanBackground(
       incomplete: [],
       scannedCount,
     };
-    const conformance = aggregateConformance([conformanceInput])
-      .map(({ violations: _v, ...rest }) => rest);
+    const conformanceScores = aggregateConformance([conformanceInput]);
+
+    // Sync conformance scores to vpatEntries (non-blocking on failure)
+    try {
+      await syncConformanceToVpat(db, projectId, scanId, conformanceScores);
+    } catch (syncErr) {
+      console.warn(`[scan:${scanId}] VPAT sync failed:`, syncErr);
+    }
+
+    // Strip violations before storing in scan config
+    const conformance = conformanceScores.map(({ violations: _v, ...rest }) => rest);
 
     await db
       .update(scans)
