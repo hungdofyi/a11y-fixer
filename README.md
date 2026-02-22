@@ -47,13 +47,18 @@ Open **http://localhost:5173** in your browser. You're ready to scan.
 ## Quick Start (CLI)
 
 ```bash
-# Scan a page
+# 1. First-time setup (same as dashboard — skip if already done)
+pnpm install
+pnpm build
+cd packages/scanner && npx playwright install chromium --with-deps && cd ../..
+
+# 2. Scan a page
 pnpm a11y scan https://example.com
 
-# Generate an HTML report
+# 3. Generate an HTML report
 pnpm a11y report --report-format html -o report.html
 
-# Generate a VPAT compliance document
+# 4. Generate a VPAT compliance document
 pnpm a11y vpat -o compliance.docx
 ```
 

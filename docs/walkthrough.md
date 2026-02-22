@@ -88,10 +88,13 @@ For developers who prefer the terminal.
 
 ### Setup
 
-Same as the dashboard setup above, then:
-
 ```bash
-# Verify it works
+# 1. Install dependencies and build (skip if already done for the dashboard)
+pnpm install
+pnpm build
+cd packages/scanner && npx playwright install chromium --with-deps && cd ../..
+
+# 2. Verify it works
 pnpm a11y --help
 ```
 
@@ -276,6 +279,7 @@ Only needed if you're deploying the dashboard for your team.
 | Problem | Solution |
 |---------|----------|
 | Dashboard won't load | Make sure both the API (`port 3001`) and web (`port 5173`) are running |
+| "Command scan not found" | Run `pnpm build` first — the CLI needs to be compiled before use |
 | Scan stuck / not starting | Check that Playwright is installed: `cd packages/scanner && npx playwright install chromium --with-deps` |
 | "Chromium not found" error | Same as above — Playwright browser needs to be installed |
 | Can't log in (deployed) | Ask your admin to check `ALLOWED_DOMAIN` matches your email domain |
