@@ -19,9 +19,7 @@ Both do the same thing — scan pages, find issues, generate reports. Pick which
 
 ### Opening the Dashboard
 
-**If it's already deployed:** Open the URL your team shared (e.g. `https://a11y-fixer.hungdo.fyi`) in your browser. That's it — skip to "Running Your First Scan" below.
-
-**If you need to run it locally:**
+**To run the dashboard locally:**
 
 You'll need two things installed first: [Node.js](https://nodejs.org/) (v18 or newer) and pnpm. To install pnpm, open your terminal and run:
 ```bash
@@ -204,7 +202,7 @@ Only needed if you're deploying the dashboard for your team.
 | `GOOGLE_CLIENT_ID` | From Google Cloud Console (see setup below) |
 | `GOOGLE_CLIENT_SECRET` | Same — Google gives you both |
 | `ALLOWED_DOMAIN` | Your company domain, e.g. `mycompany.com`. Only matching Google accounts can log in. |
-| `BASE_URL` | Your deployed URL, e.g. `https://a11y-fixer.hungdo.fyi` |
+| `BASE_URL` | Your app URL, e.g. `http://localhost:3001` |
 | `SESSION_SECRET` | Random key. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `A11Y_API_KEY` | A password you choose. Protects the API from unauthorized access. |
 

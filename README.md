@@ -12,7 +12,7 @@ You give it a URL. It opens the page in a browser, checks it against accessibili
 
 **Two ways to use it:**
 
-- **Web Dashboard** — a browser-based UI at `https://a11y-fixer.hungdo.fyi` (or run locally). Point-and-click, no terminal needed.
+- **Web Dashboard** — a browser-based UI you run locally. Point-and-click, no terminal needed.
 - **CLI** — a command-line tool for developers who prefer the terminal or want to integrate with CI/CD.
 
 ---
