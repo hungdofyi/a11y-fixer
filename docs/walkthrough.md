@@ -28,7 +28,7 @@ corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 Then set up the project:
 ```bash
-git clone <repo-url> && cd a11y-fixer
+git clone https://github.com/hungdofyi/a11y-fixer.git && cd a11y-fixer
 pnpm install
 pnpm build
 cd packages/scanner && npx playwright install chromium --with-deps && cd ../..
