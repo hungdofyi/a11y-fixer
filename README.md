@@ -8,7 +8,7 @@ An accessibility audit tool that scans web apps for WCAG violations, suggests fi
 
 ## What does this do?
 
-You give it a URL. It opens the page in a browser, checks it against accessibility standards (WCAG 2.1/2.2), and tells you what's wrong — missing alt text, poor color contrast, broken keyboard navigation, etc. It can also suggest how to fix each issue and generate compliance documents.
+You give it a URL. It opens the page in a browser, checks it against accessibility standards (WCAG 2.1/2.2), and tells you what's wrong — missing alt text, poor color contrast, broken keyboard navigation, assistive technology compatibility issues, etc. It can also suggest how to fix each issue and generate compliance documents.
 
 **Two ways to use it:**
 
@@ -55,6 +55,9 @@ cd packages/scanner && npx playwright install chromium --with-deps && cd ../..
 # 2. Scan a page
 pnpm a11y scan https://example.com
 
+# 2b. Include AT device compatibility checks (screen reader, switch, magnification)
+pnpm a11y scan https://example.com --at-compat
+
 # 3. Generate an HTML report
 pnpm a11y report --report-format html -o report.html
 
@@ -90,7 +93,7 @@ TypeScript monorepo using pnpm workspaces and Turborepo.
 | Package | Purpose |
 |---------|---------|
 | `packages/core` | Shared types, WCAG criteria map, database schema |
-| `packages/scanner` | Browser, static, and keyboard scanning engines |
+| `packages/scanner` | Browser, static, keyboard, and AT device compatibility scanning |
 | `packages/rules-engine` | Rule registry, severity classification, fix templates |
 | `packages/ai-engine` | Claude AI integration for fix suggestions |
 | `packages/report-generator` | VPAT, HTML, CSV, PDF report generation |

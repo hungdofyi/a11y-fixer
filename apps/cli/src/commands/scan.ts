@@ -19,7 +19,7 @@ export default class Scan extends BaseCommand {
     ...BaseCommand.baseFlags,
     type: Flags.string({
       description: 'Scan type',
-      options: ['browser', 'static', 'keyboard', 'all'],
+      options: ['browser', 'static', 'keyboard', 'at-compat', 'all'],
       default: 'all',
     }),
     'wcag-level': Flags.string({
@@ -33,6 +33,10 @@ export default class Scan extends BaseCommand {
     }),
     screenshots: Flags.boolean({
       description: 'Capture element screenshots during browser scan',
+      default: false,
+    }),
+    'at-compat': Flags.boolean({
+      description: 'Run AT device compatibility checks (screen reader, switch, magnification)',
       default: false,
     }),
   };
@@ -59,6 +63,7 @@ export default class Scan extends BaseCommand {
           maxPages: flags.pages,
           storageState: flags['storage-state'],
           captureScreenshots: flags.screenshots,
+          enableAtCompat: flags['at-compat'],
         });
         results.push(result);
         spinner.succeed(`Browser scan: ${result.violations.length} violations`);
@@ -98,6 +103,27 @@ export default class Scan extends BaseCommand {
         spinner.succeed(`Keyboard scan: ${result.violations.length} violations`);
       } catch (err) {
         spinner.fail(`Keyboard scan failed: ${(err as Error).message}`);
+      }
+    }
+
+    if (isUrl && (scanType === 'at-compat' || (scanType === 'all' && flags['at-compat']))) {
+      const spinner = createSpinner('Running AT device compatibility checks...');
+      spinner.start();
+      try {
+        const { scanAtCompat, launchBrowser, createContext } = await import('@a11y-fixer/scanner');
+        const browser = await launchBrowser();
+        const ctxOpts = flags['storage-state']
+          ? { storageState: flags['storage-state'] }
+          : undefined;
+        const ctx = await createContext(browser, ctxOpts);
+        const page = await ctx.newPage();
+        await page.goto(target, { waitUntil: 'networkidle' });
+        const result = await scanAtCompat(page);
+        await browser.close();
+        results.push(result);
+        spinner.succeed(`AT compat scan: ${result.violations.length} violations`);
+      } catch (err) {
+        spinner.fail(`AT compat scan failed: ${(err as Error).message}`);
       }
     }
 

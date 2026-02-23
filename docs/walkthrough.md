@@ -52,7 +52,8 @@ Open **http://localhost:5173** in your browser.
 2. **Start a scan** — Go into your project and click "New Scan". The URL pre-fills from your project. Choose a scan type:
    - **Browser** — opens the page and checks for visual/structural issues (most common)
    - **Keyboard** — tests if the page is usable with keyboard only (tab order, focus traps, skip links)
-   - **All** — runs both
+   - **AT Compat** — checks assistive technology compatibility (screen readers, switch devices, magnification)
+   - **All** — runs browser + keyboard (add `--at-compat` flag for AT checks too)
 
 3. **Watch progress** — A live progress bar shows what's happening. Scans usually take 10-60 seconds depending on how many pages are being checked.
 
@@ -110,6 +111,12 @@ pnpm a11y scan https://example.com --type browser
 
 # Only keyboard scan
 pnpm a11y scan https://example.com --type keyboard
+
+# AT device compatibility checks only (screen reader, switch, magnification)
+pnpm a11y scan https://example.com --type at-compat
+
+# Full scan with AT compat included
+pnpm a11y scan https://example.com --at-compat
 
 # Static analysis of Vue components (no browser needed)
 pnpm a11y scan ./src/components --type static
@@ -174,6 +181,8 @@ pnpm a11y project show 1
 | `-o filename` | Save output to a file |
 | `--wcag-level aaa` | Use stricter AAA level (default: AA) |
 | `--pages 50` | Crawl up to 50 pages (default: 10) |
+| `--at-compat` | Include AT device compatibility checks |
+| `--type at-compat` | Run only AT compat checks |
 
 ---
 
@@ -267,6 +276,27 @@ AI-powered features (fix suggestions, VPAT narratives) use OAuth PKCE — no API
 | No skip link | Keyboard users must tab through the entire nav on every page | Add a "Skip to content" link at the top |
 | Focus not visible | Keyboard users can't see where they are on the page | Add visible `:focus` CSS styles |
 | Empty button | Screen readers announce "button" with no description | Add text or `aria-label` to buttons |
+
+### AT device compatibility checks
+
+These checks test whether your page works with assistive technology devices. Run with `--at-compat` or `--type at-compat`.
+
+| Check | What it looks for | WCAG |
+|-------|-------------------|------|
+| Status messages | Dynamic content missing `aria-live` regions | 4.1.3 |
+| Label in name | Accessible name doesn't contain visible label | 2.5.3 |
+| Target size | Interactive elements smaller than 24x24px | 2.5.8 |
+| Focus appearance | Focus indicators with poor contrast/area | 2.4.11 |
+| Reflow | Horizontal scrolling at 320px viewport | 1.4.10 |
+| Text spacing | Content clips when text spacing increases | 1.4.12 |
+| Orientation | Content locked to portrait or landscape | 1.3.4 |
+| Reduced motion | Animations without `prefers-reduced-motion` | 2.3.3 |
+| Pointer cancellation | Actions trigger on pointer down without cancel | 2.5.2 |
+| Reading order | DOM order doesn't match visual layout | 1.3.2 |
+| Dragging alternative | Drag operations without keyboard fallback | 2.5.7 |
+| Motion actuation | Device motion features without button alternative | 2.5.4 |
+
+The last 4 are heuristic — they flag potential issues for manual review rather than definitive failures.
 
 ---
 
