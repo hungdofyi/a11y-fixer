@@ -4,6 +4,16 @@ import { checkStatusMessages } from './status-message-checker.js';
 import { checkLabelInName } from './label-in-name-checker.js';
 import { checkTargetSize } from './target-size-checker.js';
 import { checkFocusAppearance } from './focus-appearance-checker.js';
+// Phase 2 — medium-impact rules
+import { checkTextSpacing } from './text-spacing-checker.js';
+import { checkOrientation } from './orientation-checker.js';
+import { checkReducedMotion } from './reduced-motion-checker.js';
+import { checkReflow } from './reflow-checker.js';
+// Phase 3 — heuristic rules
+import { checkPointerCancellation } from './pointer-cancellation-checker.js';
+import { checkReadingOrder } from './reading-order-checker.js';
+import { checkDraggingAlternative } from './dragging-alternative-checker.js';
+import { checkMotionActuation } from './motion-actuation-checker.js';
 
 export interface AtCompatScanConfig {
   /** Duration for MutationObserver status-message check (default: 3000ms) */
@@ -54,6 +64,19 @@ export async function scanAtCompat(
   const focusResult = await checkFocusAppearance(page, focusableSelectors, focusContrastMin);
   allViolations.push(...focusResult.violations);
   allIncomplete.push(...focusResult.incomplete);
+
+  // 5. Phase 2 — medium-impact checks
+  allViolations.push(...await checkOrientation(page));
+  allViolations.push(...await checkReducedMotion(page));
+  // Reflow before text-spacing: reflow restores viewport; text-spacing injects persistent CSS
+  allViolations.push(...await checkReflow(page));
+  allViolations.push(...await checkTextSpacing(page));
+
+  // 6. Phase 3 — heuristic checks (all requiresManualReview at rule level)
+  allViolations.push(...await checkPointerCancellation(page));
+  allViolations.push(...await checkReadingOrder(page));
+  allViolations.push(...await checkDraggingAlternative(page));
+  allViolations.push(...await checkMotionActuation(page));
 
   // Set pageUrl on violations that don't have it
   for (const v of allViolations) {

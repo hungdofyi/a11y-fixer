@@ -16,6 +16,11 @@ const MANUAL_REVIEW_RULES = new Set([
   'audio-caption',
   'bypass',
   'focus-order-semantics',
+  // AT compat heuristic rules (Phase 3)
+  'at-pointer-cancellation',
+  'at-reading-order',
+  'at-dragging-alternative',
+  'at-motion-actuation',
 ]);
 
 /**

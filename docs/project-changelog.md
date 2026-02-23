@@ -6,21 +6,37 @@ All notable changes to a11y-fixer are documented here.
 
 ### Features Added
 
-#### AT Device Compatibility Scanner
-- New `packages/scanner/src/at-compat/` module with 4 WCAG 2.2 checkers
-  - `at-compat-scanner.ts` - Main orchestrator for AT device compliance
+#### AT Device Compatibility Scanner - Full 12-Rule Implementation
+- **Phase 1: Critical Rules (4 checkers)** - WCAG 2.2 fully automatable checks
   - `status-message-checker.ts` - WCAG 4.1.3: Dynamic content must use aria-live regions
   - `label-in-name-checker.ts` - WCAG 2.5.3: Accessible name must contain visible label text
-  - `target-size-checker.ts` - WCAG 2.5.8: Interactive targets must be minimum 24x24 CSS pixels
+  - `target-size-checker.ts` - WCAG 2.5.8: Interactive targets must be minimum 24x24 CSS pixels (with spacing exception)
   - `focus-appearance-checker.ts` - WCAG 2.4.11: Focus indicator must have sufficient contrast & area
-- New `AT_COMPAT_RULES` registry in `packages/rules-engine/src/registry/at-compat-rule-mapping.ts`
-- Integrated standards mapping:
-  - Section 508: § 302.7 (pointer targets), § 502.3.14 (status messages)
-  - EN 301 549: § 11.7 (focus appearance), Chapter 11 (AT device compliance)
-- Updated `BrowserScanConfig` with optional `enableAtCompat?: boolean` flag
-- New `scanAtCompat(page, config)` orchestrator function
-- Unit tests: 4 test files, 13 test cases covering all checkers
-- Returns `ScanResult` with `scanType: 'at-compat'` and violations mapped to AT rules
+
+- **Phase 2: Medium Impact Rules (4 checkers)** - Automated checks requiring viewport/CSS manipulation
+  - `reflow-checker.ts` - WCAG 1.4.10: Detects horizontal overflow at 320px viewport width
+  - `text-spacing-checker.ts` - WCAG 1.4.12: Tests text spacing overflow with CSS injection
+  - `orientation-checker.ts` - WCAG 1.3.4: Detects orientation-locked content via @media queries
+  - `reduced-motion-checker.ts` - WCAG 2.3.3: Flags animations not gated by prefers-reduced-motion
+
+- **Phase 3: Heuristic Rules (4 checkers)** - Partial automation, requires manual review flag
+  - `pointer-cancellation-checker.ts` - WCAG 2.5.2: Detects pointer down-event listeners (heuristic)
+  - `reading-order-checker.ts` - WCAG 1.3.2: Compares DOM order vs visual position for reading sequence
+  - `dragging-alternative-checker.ts` - WCAG 2.5.7: Flags drag interactions without click/keyboard alternatives
+  - `motion-actuation-checker.ts` - WCAG 2.5.4: Scans for DeviceMotion/DeviceOrientation API usage
+
+- **Integration Complete**
+  - New `packages/scanner/src/at-compat/` module with 14 files (all 12 checkers + orchestrator + index)
+  - New `AT_COMPAT_RULES` registry in `packages/rules-engine/src/registry/at-compat-rule-mapping.ts` (8 rules mapped)
+  - Phase 3 rules flagged `requiresManualReview: true` in MANUAL_REVIEW_RULES array
+  - Updated `BrowserScanConfig` with optional `enableAtCompat?: boolean` flag
+  - New `scanAtCompat(page, config)` orchestrator function wired into scan pipeline
+  - Integrated standards mapping:
+    - Section 508: § 302.7 (pointer targets), § 502.3.14 (status messages)
+    - EN 301 549: § 11.7 (focus appearance), Chapter 11 (AT device compliance)
+  - Unit tests: 8 test files, 62 test cases (all passing)
+  - Build: turbo build passes with 0 errors
+  - Returns `ScanResult` with `scanType: 'at-compat'` and violations mapped to AT rules
 
 ---
 
