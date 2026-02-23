@@ -24,36 +24,38 @@ const TEXT_SELECTORS = 'p, li, span, div, td, th, label, button, a';
  * Catches CSP failures gracefully. Devices: screen magnification.
  */
 export async function checkTextSpacing(page: Page): Promise<Violation[]> {
+  let styleHandle: { evaluate: (fn: (el: Element) => void) => Promise<void> } | null = null;
   try {
-    await page.addStyleTag({ content: SPACING_CSS });
+    styleHandle = await page.addStyleTag({ content: SPACING_CSS });
   } catch {
     // CSP may block addStyleTag — return empty
     return [];
   }
 
-  await page.waitForTimeout(SPACING_SETTLE_MS);
+  try {
+    await page.waitForTimeout(SPACING_SETTLE_MS);
 
-  const results = await page.evaluate((selector: string) => {
-    const items: Array<{ html: string; sel: string }> = [];
-    const els = document.querySelectorAll(selector);
-    for (const el of els) {
-      if (items.length >= 20) break;
-      try {
-        const htmlEl = el as HTMLElement;
-        const diff = htmlEl.scrollHeight - htmlEl.clientHeight;
-        if (diff <= 2) continue;
-        const style = getComputedStyle(htmlEl);
-        const ov = style.overflow + ' ' + style.overflowY;
-        if (!ov.includes('hidden') && !ov.includes('clip')) continue;
-        const tag = el.tagName.toLowerCase();
-        const sel = el.id ? `#${el.id}` : tag;
-        items.push({ html: el.outerHTML.slice(0, 200), sel });
-      } catch { /* skip */ }
-    }
-    return items;
-  }, TEXT_SELECTORS);
+    const results = await page.evaluate((selector: string) => {
+      const items: Array<{ html: string; sel: string }> = [];
+      const els = document.querySelectorAll(selector);
+      for (const el of els) {
+        if (items.length >= 20) break;
+        try {
+          const htmlEl = el as HTMLElement;
+          const diff = htmlEl.scrollHeight - htmlEl.clientHeight;
+          if (diff <= 2) continue;
+          const style = getComputedStyle(htmlEl);
+          const ov = style.overflow + ' ' + style.overflowY;
+          if (!ov.includes('hidden') && !ov.includes('clip')) continue;
+          const tag = el.tagName.toLowerCase();
+          const sel = el.id ? `#${el.id}` : tag;
+          items.push({ html: el.outerHTML.slice(0, 200), sel });
+        } catch { /* skip */ }
+      }
+      return items;
+    }, TEXT_SELECTORS);
 
-  return results.slice(0, MAX_RESULTS).map((r) => ({
+    return results.slice(0, MAX_RESULTS).map((r) => ({
     ruleId: 'at-text-spacing',
     wcagCriteria: ['1.4.12'],
     severity: Severity.Moderate,
@@ -66,4 +68,10 @@ export async function checkTextSpacing(page: Page): Promise<Violation[]> {
     }],
     pageUrl: page.url(),
   }));
+  } finally {
+    // Remove injected style to avoid affecting subsequent checks
+    if (styleHandle) {
+      try { await styleHandle.evaluate((el: Element) => el.remove()); } catch { /* ignore */ }
+    }
+  }
 }

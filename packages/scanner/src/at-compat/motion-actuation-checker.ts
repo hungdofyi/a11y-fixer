@@ -2,6 +2,8 @@ import type { Page } from 'playwright';
 import type { Violation } from '@a11y-fixer/core';
 import { Severity } from '@a11y-fixer/core';
 
+const MAX_RESULTS = 20;
+
 const MOTION_PATTERNS = [
   'DeviceMotionEvent',
   'DeviceOrientationEvent',
@@ -45,7 +47,7 @@ export async function checkMotionActuation(page: Page): Promise<Violation[]> {
     return items;
   }, MOTION_PATTERNS.join('|'));
 
-  return results.map((r) => ({
+  return results.slice(0, MAX_RESULTS).map((r) => ({
     ruleId: 'at-motion-actuation',
     wcagCriteria: ['2.5.4'],
     severity: Severity.Moderate,
