@@ -24,6 +24,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // POST /logout — clear stored Claude OAuth token
+  fastify.post('/logout', async (_req, reply) => {
+    const { clearToken } = await import('@a11y-fixer/ai-engine');
+    clearToken();
+    reply.send({ success: true });
+  });
+
   // POST /callback — exchange authorization code for tokens
   fastify.post<{ Body: { code: string; state: string } }>('/callback', async (req, reply) => {
     const { exchangeAuthCode } = await import('@a11y-fixer/ai-engine');

@@ -217,6 +217,29 @@ export const useScanStore = defineStore('scans', () => {
     authSessionId.value = null;
   }
 
+  /** Whether Claude OAuth token is currently valid */
+  const claudeAuthenticated = ref(false);
+
+  /** Check Claude auth status from backend */
+  async function checkClaudeAuth(): Promise<void> {
+    try {
+      const { authenticated } = await apiGet<{ authenticated: boolean }>('/auth/status');
+      claudeAuthenticated.value = authenticated;
+    } catch {
+      claudeAuthenticated.value = false;
+    }
+  }
+
+  /** Logout from Claude OAuth — clears stored token */
+  async function logoutClaude(): Promise<void> {
+    try {
+      await apiPost('/auth/logout', {});
+      claudeAuthenticated.value = false;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to logout from Claude';
+    }
+  }
+
   /** Pending auth state for code-paste flow */
   const pendingAuthState = ref<string | null>(null);
   /** Issue ID waiting for auth completion */
@@ -245,6 +268,7 @@ export const useScanStore = defineStore('scans', () => {
     error.value = null;
     try {
       await apiPost('/auth/callback', { code, state: pendingAuthState.value });
+      claudeAuthenticated.value = true;
       const issueId = pendingAuthIssueId.value;
       pendingAuthState.value = null;
       pendingAuthIssueId.value = null;
@@ -279,6 +303,9 @@ export const useScanStore = defineStore('scans', () => {
     startAuthSession,
     captureAuthSession,
     cancelAuthSession,
+    claudeAuthenticated,
+    checkClaudeAuth,
+    logoutClaude,
     pendingAuthState,
     pendingAuthIssueId,
     generateAiFix,

@@ -38,7 +38,10 @@ const screenshotUrl = computed(() => {
   return `/api/${issue.value.screenshotPath}`;
 });
 
-onMounted(() => { void store.fetchIssue(issueId.value); });
+onMounted(() => {
+  void store.fetchIssue(issueId.value);
+  void store.checkClaudeAuth();
+});
 
 function goBack(): void {
   const scanId = issue.value?.scanId;
@@ -147,14 +150,24 @@ function goBack(): void {
         <UiCardHeader>
           <div class="flex items-center justify-between w-full">
             <UiCardTitle>AI Fix Suggestion</UiCardTitle>
-            <UiButton
-              v-if="!issue.fixSuggestion"
-              size="sm"
-              :disabled="store.aiFixLoading"
-              @click="void store.generateAiFix(issueId)"
-            >
-              {{ store.aiFixLoading ? 'Generating…' : 'Generate AI Fix' }}
-            </UiButton>
+            <div class="flex items-center gap-2">
+              <UiButton
+                v-if="store.claudeAuthenticated"
+                variant="outline"
+                size="sm"
+                @click="void store.logoutClaude()"
+              >
+                Disconnect Claude
+              </UiButton>
+              <UiButton
+                v-if="!issue.fixSuggestion"
+                size="sm"
+                :disabled="store.aiFixLoading"
+                @click="void store.generateAiFix(issueId)"
+              >
+                {{ store.aiFixLoading ? 'Generating…' : 'Generate AI Fix' }}
+              </UiButton>
+            </div>
           </div>
         </UiCardHeader>
         <UiCardContent>
