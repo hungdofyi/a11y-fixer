@@ -11,6 +11,7 @@ import {
 import type { BrowserScanConfig } from './browser/index.js';
 import type { ScreenshotResult } from './browser/index.js';
 import { scanKeyboard } from './keyboard/index.js';
+import { scanAtCompat } from './at-compat/index.js';
 
 export type { BrowserScanConfig } from './browser/index.js';
 export type { ScreenshotResult } from './browser/index.js';
@@ -30,11 +31,16 @@ export * from './static/index.js';
 // Keyboard & focus testing exports
 export * from './keyboard/index.js';
 
+// AT device compatibility testing exports
+export * from './at-compat/index.js';
+
 /** Extended scan result with optional screenshot paths and keyboard results */
 export interface ScanUrlResult extends ScanResult {
   screenshotResults?: ScreenshotResult[];
   /** Keyboard scan result when enableKeyboard is true — caller merges via mergeScanResults */
   keyboardResult?: ScanResult;
+  /** AT compat scan result when enableAtCompat is true — caller merges via mergeScanResults */
+  atCompatResult?: ScanResult;
 }
 
 /**
@@ -83,6 +89,12 @@ export async function scanUrl(
       keyboardResult = await scanKeyboard(page, {});
     }
 
+    // Optionally run AT device compatibility checks (after keyboard scan)
+    let atCompatResult: ScanResult | undefined;
+    if (mergedConfig.enableAtCompat) {
+      atCompatResult = await scanAtCompat(page, {});
+    }
+
     await context.close();
 
     return {
@@ -92,6 +104,7 @@ export async function scanUrl(
       ...normalized,
       screenshotResults,
       keyboardResult,
+      atCompatResult,
     };
   } finally {
     await closeBrowser(browser);

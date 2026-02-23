@@ -2,6 +2,28 @@
 
 All notable changes to a11y-fixer are documented here.
 
+## [2026-02-23]
+
+### Features Added
+
+#### AT Device Compatibility Scanner
+- New `packages/scanner/src/at-compat/` module with 4 WCAG 2.2 checkers
+  - `at-compat-scanner.ts` - Main orchestrator for AT device compliance
+  - `status-message-checker.ts` - WCAG 4.1.3: Dynamic content must use aria-live regions
+  - `label-in-name-checker.ts` - WCAG 2.5.3: Accessible name must contain visible label text
+  - `target-size-checker.ts` - WCAG 2.5.8: Interactive targets must be minimum 24x24 CSS pixels
+  - `focus-appearance-checker.ts` - WCAG 2.4.11: Focus indicator must have sufficient contrast & area
+- New `AT_COMPAT_RULES` registry in `packages/rules-engine/src/registry/at-compat-rule-mapping.ts`
+- Integrated standards mapping:
+  - Section 508: § 302.7 (pointer targets), § 502.3.14 (status messages)
+  - EN 301 549: § 11.7 (focus appearance), Chapter 11 (AT device compliance)
+- Updated `BrowserScanConfig` with optional `enableAtCompat?: boolean` flag
+- New `scanAtCompat(page, config)` orchestrator function
+- Unit tests: 4 test files, 13 test cases covering all checkers
+- Returns `ScanResult` with `scanType: 'at-compat'` and violations mapped to AT rules
+
+---
+
 ## [2026-02-22]
 
 ### Features Added

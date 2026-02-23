@@ -29,4 +29,6 @@ export interface BrowserScanConfig {
   maxScreenshots?: number;
   /** Enable keyboard & focus testing after axe scan (default: false) */
   enableKeyboard?: boolean;
+  /** Enable AT device compatibility testing after axe scan (default: false) */
+  enableAtCompat?: boolean;
 }

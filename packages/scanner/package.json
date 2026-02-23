@@ -16,19 +16,21 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "eslint src/",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@a11y-fixer/core": "workspace:*",
-    "playwright": "^1.50.0",
-    "axe-core": "^4.10.0",
-    "@vue/compiler-sfc": "^3.5",
     "@vue/compiler-core": "^3.5",
-    "fast-glob": "^3"
+    "@vue/compiler-sfc": "^3.5",
+    "axe-core": "^4.10.0",
+    "fast-glob": "^3",
+    "playwright": "^1.50.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^4.0.18"
   }
 }

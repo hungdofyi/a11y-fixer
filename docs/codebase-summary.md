@@ -80,6 +80,14 @@ a11y-fixer/
 - `skip-link-detector.ts` - Verify skip links present
 - `heading-validator.ts` - Check heading hierarchy
 
+**src/at-compat/** (6 files, ~280 LOC) [NEW]
+- Assistive technology device compatibility checks
+- `at-compat-scanner.ts` - Main orchestrator for AT device scans
+- `status-message-checker.ts` - WCAG 4.1.3 aria-live region validation
+- `label-in-name-checker.ts` - WCAG 2.5.3 accessible name validation
+- `target-size-checker.ts` - WCAG 2.5.8 interactive target minimum size (24x24 CSS px)
+- `focus-appearance-checker.ts` - WCAG 2.4.11 focus indicator contrast & area validation
+
 **src/screenshots/** (1 file, ~150 LOC) [NEW]
 - `screenshot-capture.ts` - Capture element screenshots with highlight overlay
   - Highlights failing elements with red border/background
@@ -91,6 +99,7 @@ a11y-fixer/
 - `scanSite(siteConfig)` - AsyncGenerator for multi-page crawl
 - `scanVueStatic(paths)` - Static Vue analysis
 - `scanKeyboard(url, config)` - Keyboard/focus testing
+- `scanAtCompat(page, config)` - AT device compatibility scan [NEW]
 - `captureElementScreenshot(page, selector, outputPath)` - Screenshot with visual context [NEW]
 
 ---
@@ -101,9 +110,10 @@ a11y-fixer/
 
 **Subdirectories**:
 
-**src/registry/** (3 files, ~280 LOC)
+**src/registry/** (4 files, ~320 LOC) [UPDATED]
 - `rule-registry.ts` - RuleRegistry class with O(1) rule lookup, criterion index
 - `axe-rule-mapping.ts` - Pre-built mapping of ~47 axe rules → WCAG + severity
+- `at-compat-rule-mapping.ts` - 4 AT device rules (status-messages, label-in-name, target-size, focus-appearance) [NEW]
 - `severity-classifier.ts` - classifySeverity() with per-rule overrides
 
 **src/fixes/** (7 files, ~150 LOC)
@@ -291,11 +301,11 @@ scanner → rules-engine → ai-engine → report-generator
 | Package | Files | LOC | Key Exports |
 |---------|-------|-----|------------|
 | core | 14 | 409 | Types, enums, schema |
-| scanner | 28 | 1510 | scanUrl, scanSite, scanKeyboard, captureElementScreenshot |
-| rules-engine | 13 | 510 | RuleRegistry, classifySeverity |
+| scanner | 34 | 1790 | scanUrl, scanSite, scanKeyboard, scanAtCompat, captureElementScreenshot |
+| rules-engine | 13 | 530 | RuleRegistry, classifySeverity, AT_COMPAT_RULES |
 | ai-engine | 19 | 978 | queryAgent, analyzeComplexIssue |
 | report-generator | 10 | 471 | buildVpat, generateScanReport |
-| **Packages Subtotal** | **84** | **3878** | — |
+| **Packages Subtotal** | **90** | **4158** | — |
 | | | | |
 | cli | 8 | 280 | CLI commands |
 | api | 11 | 530 | REST routes + auth-session + screenshots [UPDATED] |
@@ -303,7 +313,7 @@ scanner → rules-engine → ai-engine → report-generator
 | cli | 10 | 320 | CLI commands + issue commands |
 | **Apps Subtotal** | **36** | **1250** | — |
 | | | | |
-| **TOTAL** | **120** | **5128** | 8 packages |
+| **TOTAL** | **126** | **5408** | 8 packages |
 
 ## Build & Runtime
 

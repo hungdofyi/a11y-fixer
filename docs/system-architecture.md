@@ -391,6 +391,30 @@ Parallel test modules:
 ScanResult (violations, passes, incomplete)
 ```
 
+### AT Device Compatibility Scanning [NEW]
+```
+Playwright page object
+    ↓
+[at-compat-scanner.ts]
+    ├─ Run WCAG AT device compatibility checks
+    └─ Orchestrate all AT compat checkers in parallel
+    ↓
+Parallel checker modules:
+    ├─ [status-message-checker.ts] - WCAG 4.1.3: Dynamic status messages use aria-live
+    ├─ [label-in-name-checker.ts] - WCAG 2.5.3: Accessible name contains visible label
+    ├─ [target-size-checker.ts] - WCAG 2.5.8: Interactive targets minimum 24x24 CSS px
+    └─ [focus-appearance-checker.ts] - WCAG 2.4.11: Focus indicators have sufficient contrast & area
+    ↓
+ScanResult (scanType: 'at-compat', violations with AT-specific rules)
+```
+
+**Features**:
+- AT device (screen reader, voice control) compatibility validation
+- Rules map to WCAG 2.2 Level AA + Section 508 + EN 301 549
+- Integrable into `scanUrl()` or standalone via `scanAtCompat(page, config)`
+- Returns violations with AT_COMPAT_RULES mapping for rule lookup
+```
+
 ## Rules Engine (packages/rules-engine)
 
 ### Rule Registry
@@ -885,14 +909,27 @@ User: Fill VPAT wizard form → Submit
 ```
 WCAG 2.1 Level AA (49 criteria)
 ├─ WCAG 2.2 Level AA (6 additional criteria)
-├─ ADA Section 508
-│  └─ § 255.1 - Functional performance criteria
-│  └─ § 255.2 - Scoping and application
+│  ├─ 2.4.11 - Focus Appearance [AT Compat Rule: focus-appearance]
+│  └─ 2.5.3 - Label in Name [AT Compat Rule: label-in-name]
 │
-└─ EN 301 549 (EU standard)
-   └─ Chapter 9 - Web content
+├─ ADA Section 508 (Revised 2017)
+│  ├─ § 501.1 - General (all criteria)
+│  ├─ § 302.7 - Pointer Targets (2.5.3, 2.5.8) [AT Compat]
+│  └─ § 502.3.14 - Status Messages (4.1.3) [AT Compat]
+│
+├─ EN 301 549 (EU standard, v3.2.1)
+│  ├─ Chapter 9 - Web content
+│  ├─ Chapter 10 - Non-web documents
+│  ├─ § 11.7 - Focus Appearance (2.4.11) [AT Compat]
+│  └─ Additional AT Device references (2.5.3, 2.5.8, 4.1.3)
+│
+└─ AT Device Compatibility [NEW]
+   ├─ 4.1.3 - Status Messages (aria-live regions)
+   ├─ 2.5.3 - Label in Name (accessible name validation)
+   ├─ 2.5.8 - Target Size (24x24 CSS px minimum)
+   └─ 2.4.11 - Focus Appearance (contrast & area)
 
-All mapped in packages/core/wcag/criteria-map.ts & standard-mapping.ts
+All mapped in packages/core/wcag/criteria-map.ts, standard-mapping.ts & at-compat-rule-mapping.ts
 ```
 
 ## Error Handling & Security
