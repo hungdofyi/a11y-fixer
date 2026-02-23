@@ -84,12 +84,12 @@ function mergeStandardEntry(
  * Deletes existing entries for the project, then inserts fresh rows
  * for all WCAG criteria across wcag/section508/en301549 standards.
  */
-export async function syncConformanceToVpat(
+export function syncConformanceToVpat(
   db: Db,
   projectId: number,
   scanId: number,
   scores: CriterionScore[],
-): Promise<void> {
+): void {
   // Index scores by wcagId for fast lookup
   const scoreMap = new Map(scores.map((s) => [s.wcagId, s]));
 
@@ -159,12 +159,12 @@ export async function syncConformanceToVpat(
     });
   }
 
-  // Atomic delete + insert in transaction
+  // Atomic delete + insert in transaction (better-sqlite3 transactions must be synchronous)
   const BATCH_SIZE = 50;
-  await db.transaction(async (tx) => {
-    await tx.delete(vpatEntries).where(eq(vpatEntries.projectId, projectId));
+  db.transaction((tx) => {
+    tx.delete(vpatEntries).where(eq(vpatEntries.projectId, projectId)).run();
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      await tx.insert(vpatEntries).values(rows.slice(i, i + BATCH_SIZE));
+      tx.insert(vpatEntries).values(rows.slice(i, i + BATCH_SIZE)).run();
     }
   });
 }
