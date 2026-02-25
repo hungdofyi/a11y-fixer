@@ -38,6 +38,7 @@ export interface TriggerScanInput {
   url: string;
   authSessionId?: string;
   enableKeyboard?: boolean;
+  enableAtCompat?: boolean;
   enableScreenshots?: boolean;
   maxPages?: number;
 }
