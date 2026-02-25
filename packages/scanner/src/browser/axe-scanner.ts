@@ -27,10 +27,18 @@ function resolveAxeSource(): string {
  */
 export async function scanPage(page: Page, config: BrowserScanConfig): Promise<AxeResults> {
   const timeout = config.timeout ?? 60000;
-  const waitUntil = config.waitStrategy ?? 'domcontentloaded';
+  const waitUntil = config.waitStrategy ?? 'networkidle';
 
   // Navigate to target URL
   await page.goto(config.url, { timeout, waitUntil });
+
+  // Optionally wait for a specific element (async content like modals)
+  if (config.waitForSelector) {
+    await page.waitForSelector(config.waitForSelector, {
+      timeout: config.waitForSelectorTimeout ?? 10000,
+      state: 'visible',
+    });
+  }
 
   // Inject axe-core script into page context
   const axeSource = resolveAxeSource();

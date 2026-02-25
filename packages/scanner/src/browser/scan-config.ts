@@ -21,6 +21,10 @@ export interface BrowserScanConfig {
   concurrency?: number;
   /** Strategy to determine when page is ready for scanning */
   waitStrategy?: 'load' | 'networkidle' | 'domcontentloaded';
+  /** CSS selector to wait for before running axe (useful for async-rendered content) */
+  waitForSelector?: string;
+  /** Maximum time to wait for the selector in ms (default: 10000) */
+  waitForSelectorTimeout?: number;
   /** Path to Playwright storageState JSON file for authenticated scanning */
   storageState?: string;
   /** Capture screenshots of violating elements (default: false) */
