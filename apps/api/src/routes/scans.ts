@@ -173,9 +173,12 @@ async function runScanBackground(
         enableAtCompat: opts.enableAtCompat,
         ...(storageStatePath ? { storageState: storageStatePath } : {}),
       });
-      // If keyboard scan was enabled, merge axe + keyboard results
-      if (result.keyboardResult) {
-        const merged = mergeScanResults([result, result.keyboardResult]);
+      // NEW: merge axe + keyboard + AT compat results
+      const extraResults = [result.keyboardResult, result.atCompatResult].filter(
+        (r): r is import('@a11y-fixer/core').ScanResult => r !== undefined,
+      );
+      if (extraResults.length > 0) {
+        const merged = mergeScanResults([result, ...extraResults]);
         violations = merged.violations;
         scannedCount = merged.scannedCount;
       } else {
