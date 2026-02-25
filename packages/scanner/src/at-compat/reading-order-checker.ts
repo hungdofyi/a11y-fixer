@@ -37,7 +37,15 @@ export async function checkReadingOrder(page: Page): Promise<Violation[]> {
       if (curr.top - next.top > threshold) {
         const el = next.el;
         const tag = el.tagName.toLowerCase();
-        const sel = el.id ? `#${el.id}` : tag;
+        let sel: string;
+        if (el.id) {
+          sel = `#${el.id}`;
+        } else {
+          const parent = el.parentElement;
+          const siblings = parent ? Array.from(parent.children).filter(c => c.tagName === el.tagName) : [];
+          const idx = siblings.indexOf(el) + 1;
+          sel = siblings.length > 1 ? `${tag}:nth-of-type(${idx})` : tag;
+        }
         items.push({
           html: el.outerHTML.slice(0, 200),
           sel,

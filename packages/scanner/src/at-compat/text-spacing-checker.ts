@@ -48,26 +48,44 @@ export async function checkTextSpacing(page: Page): Promise<Violation[]> {
           const ov = style.overflow + ' ' + style.overflowY;
           if (!ov.includes('hidden') && !ov.includes('clip')) continue;
           const tag = el.tagName.toLowerCase();
-          const sel = el.id ? `#${el.id}` : tag;
+          let sel: string;
+          if (el.id) {
+            sel = `#${el.id}`;
+          } else {
+            const parent = el.parentElement;
+            const siblings = parent ? Array.from(parent.children).filter(c => c.tagName === el.tagName) : [];
+            const idx = siblings.indexOf(el) + 1;
+            sel = siblings.length > 1 ? `${tag}:nth-of-type(${idx})` : tag;
+          }
           items.push({ html: el.outerHTML.slice(0, 200), sel });
         } catch { /* skip */ }
       }
       return items;
     }, TEXT_SELECTORS);
 
+    // Capture screenshot WITH spacing CSS still applied (before cleanup in finally)
+    let spacingScreenshotBase64: string | undefined;
+    if (results.length > 0) {
+      try {
+        const buf = await page.screenshot({ fullPage: false });
+        spacingScreenshotBase64 = buf.toString('base64');
+      } catch { /* non-blocking */ }
+    }
+
     return results.slice(0, MAX_RESULTS).map((r) => ({
-    ruleId: 'at-text-spacing',
-    wcagCriteria: ['1.4.12'],
-    severity: Severity.Moderate,
-    description: 'Content clipped when WCAG text spacing overrides are applied',
-    nodes: [{
-      element: r.sel,
-      html: r.html,
-      target: [r.sel],
-      failureSummary: 'Element clips content (overflow:hidden) when text spacing is increased',
-    }],
-    pageUrl: page.url(),
-  }));
+      ruleId: 'at-text-spacing',
+      wcagCriteria: ['1.4.12'],
+      severity: Severity.Moderate,
+      description: 'Content clipped when WCAG text spacing overrides are applied',
+      nodes: [{
+        element: r.sel,
+        html: r.html,
+        target: [r.sel],
+        failureSummary: 'Element clips content (overflow:hidden) when text spacing is increased',
+      }],
+      pageUrl: page.url(),
+      ...(spacingScreenshotBase64 ? { _screenshotBase64: spacingScreenshotBase64 } : {}),
+    } as Violation & { _screenshotBase64?: string }));
   } finally {
     // Remove injected style to avoid affecting subsequent checks
     if (styleHandle) {

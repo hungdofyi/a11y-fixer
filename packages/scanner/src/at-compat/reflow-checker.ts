@@ -30,12 +30,30 @@ export async function checkReflow(page: Page): Promise<Violation[]> {
           const rect = el.getBoundingClientRect();
           if (rect.width === 0 || rect.right <= vw + 1) continue;
           const tag = el.tagName.toLowerCase();
-          const sel = el.id ? `#${el.id}` : tag;
+          // Build a specific selector so screenshots can find the exact element
+          let sel: string;
+          if (el.id) {
+            sel = `#${el.id}`;
+          } else {
+            const parent = el.parentElement;
+            const siblings = parent ? Array.from(parent.children).filter(c => c.tagName === el.tagName) : [];
+            const idx = siblings.indexOf(el) + 1;
+            sel = siblings.length > 1 ? `${tag}:nth-of-type(${idx})` : tag;
+          }
           items.push({ html: el.outerHTML.slice(0, 200), sel });
         } catch { /* skip */ }
       }
       return items;
     });
+
+    // Capture screenshot at 320px viewport BEFORE restoring (so it shows the actual overflow)
+    let reflowScreenshotBase64: string | undefined;
+    if (results.length > 0) {
+      try {
+        const buf = await page.screenshot({ fullPage: false });
+        reflowScreenshotBase64 = buf.toString('base64');
+      } catch { /* screenshot failure is non-blocking */ }
+    }
 
     return results.slice(0, MAX_RESULTS).map((r) => ({
       ruleId: 'at-reflow',
@@ -49,7 +67,9 @@ export async function checkReflow(page: Page): Promise<Violation[]> {
         failureSummary: 'Element extends beyond 320px viewport, requiring horizontal scrolling',
       }],
       pageUrl: page.url(),
-    }));
+      // Attach in-checker screenshot as base64 so the caller can save it
+      ...(reflowScreenshotBase64 ? { _screenshotBase64: reflowScreenshotBase64 } : {}),
+    } as Violation & { _screenshotBase64?: string }));
   } finally {
     if (original) {
       await page.setViewportSize(original);

@@ -5,12 +5,23 @@ import type { Violation, Severity } from '@a11y-fixer/core';
 export async function validateHeadings(page: Page): Promise<Violation[]> {
   const headings = await page.evaluate(() => {
     const elements = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    return Array.from(elements).map((el) => ({
-      level: parseInt(el.tagName[1], 10),
-      text: (el.textContent || '').trim().slice(0, 100),
-      html: el.outerHTML.slice(0, 200),
-      selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
-    }));
+    return Array.from(elements).map((el, idx) => {
+      const tag = el.tagName.toLowerCase();
+      let selector: string;
+      if (el.id) {
+        selector = `#${el.id}`;
+      } else {
+        // Use nth-of-type for specificity so screenshots find the exact heading
+        const sameTagBefore = Array.from(elements).slice(0, idx).filter(e => e.tagName === el.tagName).length;
+        selector = `${tag}:nth-of-type(${sameTagBefore + 1})`;
+      }
+      return {
+        level: parseInt(el.tagName[1], 10),
+        text: (el.textContent || '').trim().slice(0, 100),
+        html: el.outerHTML.slice(0, 200),
+        selector,
+      };
+    });
   });
 
   const violations: Violation[] = [];

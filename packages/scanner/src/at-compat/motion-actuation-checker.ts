@@ -53,9 +53,9 @@ export async function checkMotionActuation(page: Page): Promise<Violation[]> {
     severity: Severity.Moderate,
     description: 'Page may use device motion/orientation without button alternative',
     nodes: [{
-      element: 'script',
+      element: 'page',
       html: r.source.slice(0, 200),
-      target: ['script'],
+      target: [],
       failureSummary: `Found "${r.match}" usage — may require non-motion alternative`,
     }],
     pageUrl: page.url(),
