@@ -23,7 +23,15 @@ export interface LaunchOptions {
  */
 export async function launchBrowser(options?: LaunchOptions): Promise<Browser> {
   if (options?.cdpEndpoint) {
-    return chromium.connectOverCDP(options.cdpEndpoint);
+    try {
+      return await chromium.connectOverCDP(options.cdpEndpoint);
+    } catch (err) {
+      throw new Error(
+        `Failed to connect to Chrome via CDP at ${options.cdpEndpoint}. ` +
+        `Ensure Chrome is running with --remote-debugging-port. ` +
+        `Original error: ${(err as Error).message}`,
+      );
+    }
   }
   const browser = await chromium.launch({
     headless: options?.headless ?? true,
@@ -66,7 +74,8 @@ export async function createContext(
   return context;
 }
 
-/** Close the browser and release all associated resources */
+/** Close the browser and release all associated resources.
+ * For CDP-connected browsers, this disconnects without killing Chrome. */
 export async function closeBrowser(browser: Browser): Promise<void> {
   await browser.close();
 }
