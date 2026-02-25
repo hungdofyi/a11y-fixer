@@ -12,8 +12,8 @@ export interface WcagCriterion {
 }
 
 /**
- * Complete WCAG 2.1/2.2 criteria map covering all A and AA level criteria (50 criteria).
- * AAA criteria excluded per plan scope (AA target).
+ * Complete WCAG 2.1/2.2 criteria map covering all A and AA level criteria plus select AAA.
+ * Used for conformance table lookups.
  */
 export const WCAG_CRITERIA_MAP: WcagCriterion[] = [
   // 1. Perceivable
@@ -45,6 +45,7 @@ export const WCAG_CRITERIA_MAP: WcagCriterion[] = [
   // 2.1 Keyboard Accessible
   { id: '2.1.1', title: 'Keyboard', level: 'A', principle: 'operable', guidelineId: '2.1', guidelineTitle: 'Keyboard Accessible' },
   { id: '2.1.2', title: 'No Keyboard Trap', level: 'A', principle: 'operable', guidelineId: '2.1', guidelineTitle: 'Keyboard Accessible' },
+  { id: '2.1.3', title: 'Keyboard (No Exception)', level: 'AAA', principle: 'operable', guidelineId: '2.1', guidelineTitle: 'Keyboard Accessible' },
   { id: '2.1.4', title: 'Character Key Shortcuts', level: 'A', principle: 'operable', guidelineId: '2.1', guidelineTitle: 'Keyboard Accessible' },
   // 2.2 Enough Time
   { id: '2.2.1', title: 'Timing Adjustable', level: 'A', principle: 'operable', guidelineId: '2.2', guidelineTitle: 'Enough Time' },

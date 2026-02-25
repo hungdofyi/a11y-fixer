@@ -5,12 +5,95 @@ import type { Violation } from '@a11y-fixer/core';
 import type { ScreenshotResult } from './screenshot-capture.js';
 
 const ELEMENT_TIMEOUT_MS = 1500;
+const HIGHLIGHT_ATTR = 'data-a11y-focus-highlight';
 
 /** Rules where the screenshot should show the element in its focused state */
 const FOCUS_RULES = new Set(['focus-visible', 'at-focus-appearance']);
 
 /** Rules where the checker captured an in-context screenshot (base64) */
 const IN_CHECKER_SCREENSHOT_RULES = new Set(['at-reflow', 'at-text-spacing']);
+
+/** Inject a prominent highlight overlay on the target element with a label */
+async function addHighlight(page: Page, selector: string, label?: string): Promise<void> {
+  await page.evaluate(([sel, attr, lbl]: string[]) => {
+    const el = document.querySelector(sel!);
+    if (!el) return;
+    (el as HTMLElement).setAttribute(attr!, '');
+
+    // Add label badge above element
+    if (lbl) {
+      const badge = document.createElement('div');
+      badge.setAttribute(attr!, 'badge');
+      badge.textContent = lbl;
+      const rect = el.getBoundingClientRect();
+      Object.assign(badge.style, {
+        position: 'fixed',
+        left: `${rect.left}px`,
+        top: `${Math.max(0, rect.top - 28)}px`,
+        background: '#ef4444',
+        color: '#fff',
+        fontSize: '12px',
+        fontWeight: '700',
+        fontFamily: 'system-ui, sans-serif',
+        padding: '2px 8px',
+        borderRadius: '4px 4px 0 0',
+        zIndex: '2147483647',
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+      });
+      document.body.appendChild(badge);
+    }
+
+    const style = document.createElement('style');
+    style.setAttribute(attr!, 'injected');
+    style.textContent = [
+      `[${attr}] {`,
+      '  outline: 3px solid #ef4444 !important;',
+      '  outline-offset: 2px !important;',
+      '  box-shadow: 0 0 0 4px rgba(239,68,68,0.3), 0 0 12px 4px rgba(239,68,68,0.15) !important;',
+      '}',
+    ].join('\n');
+    document.head.appendChild(style);
+  }, [selector, HIGHLIGHT_ATTR, label ?? '']);
+}
+
+/** Remove the injected highlight and badge */
+async function removeHighlight(page: Page, selector: string): Promise<void> {
+  await page.evaluate(([sel, attr]: string[]) => {
+    const el = document.querySelector(sel!);
+    if (el) (el as HTMLElement).removeAttribute(attr!);
+    document.querySelectorAll(`[${attr}="injected"], [${attr}="badge"]`).forEach(n => n.remove());
+  }, [selector, HIGHLIGHT_ATTR]);
+}
+
+/**
+ * Dismiss app modals/overlays that might obscure the target element.
+ * Presses Escape, then hides any open dialogs and large fixed/absolute overlays.
+ */
+async function dismissAppOverlays(page: Page): Promise<void> {
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(150);
+  await page.evaluate(() => {
+    const viewW = window.innerWidth;
+    const viewH = window.innerHeight;
+    // Close open <dialog> and ARIA modals
+    document.querySelectorAll('dialog[open], [role="dialog"], [aria-modal="true"]').forEach(el => {
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
+    });
+    // Hide fixed/absolute overlays covering >50% of viewport (backdrops, cookie banners, etc.)
+    for (const el of document.querySelectorAll('*')) {
+      const style = window.getComputedStyle(el);
+      if (style.position !== 'fixed' && style.position !== 'absolute') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const z = parseInt(style.zIndex, 10);
+      if (isNaN(z) || z < 100) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width > viewW * 0.5 && rect.height > viewH * 0.5) {
+        (el as HTMLElement).style.setProperty('display', 'none', 'important');
+      }
+    }
+  });
+}
 
 /**
  * Capture screenshots of keyboard/AT violations.
@@ -97,30 +180,25 @@ export async function captureFocusScreenshots(
           continue;
         }
 
+        // Dismiss any app modals/overlays that might have been triggered by prior interactions
+        await dismissAppOverlays(page);
+
         if (FOCUS_RULES.has(violation.ruleId)) {
-          // Focus-related: focus the element so screenshot shows focus state
+          // Focus-related: focus the element AND highlight so user can identify it
           await page.focus(foundSelector).catch(() => {});
           await page.waitForTimeout(100);
+          // If focusing triggered a modal, dismiss it again
+          await dismissAppOverlays(page);
+          await addHighlight(page, foundSelector, 'Focus issue');
           await page.screenshot({ path: filePath, fullPage: false });
+          await removeHighlight(page, foundSelector);
           await page.evaluate(() => (document.activeElement as HTMLElement)?.blur?.());
         } else {
-          // Standard: highlight with red outline
-          await page.evaluate(([sel]: string[]) => {
-            const el = document.querySelector(sel!);
-            if (!el) return;
-            (el as HTMLElement).setAttribute('data-a11y-highlight', '');
-            const style = document.createElement('style');
-            style.setAttribute('data-a11y-highlight', 'injected');
-            style.textContent = `[data-a11y-highlight] { outline: 3px dashed #ef4444 !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px rgba(239,68,68,0.25) !important; }`;
-            document.head.appendChild(style);
-          }, [foundSelector]);
+          // Standard: highlight with red outline + label
+          const label = violation.ruleId.replace(/^at-/, '').replace(/-/g, ' ');
+          await addHighlight(page, foundSelector, label);
           await page.screenshot({ path: filePath, fullPage: false });
-          await page.evaluate(([sel]: string[]) => {
-            const el = document.querySelector(sel!);
-            if (el) (el as HTMLElement).removeAttribute('data-a11y-highlight');
-            const style = document.querySelector('style[data-a11y-highlight="injected"]');
-            if (style) style.remove();
-          }, [foundSelector]);
+          await removeHighlight(page, foundSelector);
         }
 
         results.push({ issueIndex, relativePath });
