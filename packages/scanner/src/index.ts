@@ -147,8 +147,9 @@ export async function* scanSite(
     const context = await createContext(browser, contextOpts);
 
     // Collect URLs from crawler up to maxPages
+    // Pass browser context so the crawler can render SPA pages to find links
     const urlQueue: string[] = [];
-    for await (const pageUrl of discoverUrls(url, maxPages)) {
+    for await (const pageUrl of discoverUrls(url, maxPages, context)) {
       urlQueue.push(pageUrl);
     }
 

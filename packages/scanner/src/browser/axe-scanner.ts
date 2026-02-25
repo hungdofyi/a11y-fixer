@@ -3,6 +3,7 @@ import { createRequire } from 'module';
 import type { Page } from 'playwright';
 import type { AxeResults } from 'axe-core';
 import type { BrowserScanConfig } from './scan-config.js';
+import { waitForDomStable } from './dom-settler.js';
 
 /** Map WCAG conformance level to axe-core tag selectors */
 function wcagLevelToTags(level: BrowserScanConfig['wcagLevel']): string[] {
@@ -22,17 +23,25 @@ function resolveAxeSource(): string {
 }
 
 /**
- * Navigate to a URL, inject axe-core, and run accessibility checks.
- * Returns raw AxeResults from axe-core for further normalization.
+ * Navigate to a URL, wait for SPA to settle, inject axe-core, and run checks.
+ * Uses 'load' + DOM stability detection by default — works for SPAs with
+ * persistent WebSocket connections, async data fetching, and framework hydration.
  */
 export async function scanPage(page: Page, config: BrowserScanConfig): Promise<AxeResults> {
   const timeout = config.timeout ?? 60000;
-  const waitUntil = config.waitStrategy ?? 'networkidle';
+  // Use 'load' by default: fires after all static resources are loaded,
+  // then we wait for DOM to stabilize (handles SPA hydration + async renders).
+  // 'networkidle' hangs on SPAs with WebSockets; 'domcontentloaded' fires before JS runs.
+  const waitUntil = config.waitStrategy ?? 'load';
 
   // Navigate to target URL
   await page.goto(config.url, { timeout, waitUntil });
 
-  // Optionally wait for a specific element (async content like modals)
+  // Wait for SPA framework to hydrate and async content to render.
+  // MutationObserver-based: resolves when DOM stops changing for 500ms.
+  await waitForDomStable(page);
+
+  // Optionally wait for a specific element (e.g. a known async component)
   if (config.waitForSelector) {
     await page.waitForSelector(config.waitForSelector, {
       timeout: config.waitForSelectorTimeout ?? 10000,
