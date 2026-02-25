@@ -60,7 +60,10 @@ export async function scanUrl(
     ...scanConfig,
   };
 
-  const browser = await launchBrowser();
+  const browser = await launchBrowser({
+    cdpEndpoint: mergedConfig.cdpEndpoint,
+    browserChannel: mergedConfig.browserChannel,
+  });
   try {
     const contextOpts = mergedConfig.storageState
       ? { viewport: mergedConfig.viewport, storageState: mergedConfig.storageState }
@@ -133,7 +136,10 @@ export async function* scanSite(
   const maxPages = mergedConfig.maxPages ?? 10;
   const concurrency = mergedConfig.concurrency ?? 5;
 
-  const browser = await launchBrowser();
+  const browser = await launchBrowser({
+    cdpEndpoint: mergedConfig.cdpEndpoint,
+    browserChannel: mergedConfig.browserChannel,
+  });
   try {
     const contextOpts = mergedConfig.storageState
       ? { viewport: mergedConfig.viewport, storageState: mergedConfig.storageState }

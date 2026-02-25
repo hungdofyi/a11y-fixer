@@ -27,6 +27,10 @@ export interface BrowserScanConfig {
   waitForSelectorTimeout?: number;
   /** Path to Playwright storageState JSON file for authenticated scanning */
   storageState?: string;
+  /** CDP WebSocket endpoint to connect to existing browser (e.g. http://localhost:9222) */
+  cdpEndpoint?: string;
+  /** Use installed Chrome instead of bundled Chromium (set to 'chrome') */
+  browserChannel?: 'chrome' | 'msedge';
   /** Capture screenshots of violating elements (default: false) */
   captureScreenshots?: boolean;
   /** Max screenshots per scan (default: 50) */

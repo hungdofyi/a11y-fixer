@@ -39,6 +39,13 @@ export default class Scan extends BaseCommand {
       description: 'Run AT device compatibility checks (screen reader, switch, magnification)',
       default: false,
     }),
+    'cdp-endpoint': Flags.string({
+      description: 'CDP endpoint to connect to existing Chrome (e.g. http://localhost:9222)',
+    }),
+    'browser-channel': Flags.string({
+      description: 'Use installed browser instead of bundled Chromium',
+      options: ['chrome', 'msedge'],
+    }),
   };
 
   async run(): Promise<void> {
@@ -65,6 +72,8 @@ export default class Scan extends BaseCommand {
           captureScreenshots: flags.screenshots,
           enableKeyboard: scanType === 'all' ? true : undefined,
           enableAtCompat: flags['at-compat'],
+          cdpEndpoint: flags['cdp-endpoint'],
+          browserChannel: flags['browser-channel'] as 'chrome' | 'msedge' | undefined,
         });
         results.push(result);
         // Push keyboard/AT sub-results for separate display
@@ -95,7 +104,10 @@ export default class Scan extends BaseCommand {
       spinner.start();
       try {
         const { scanKeyboard, launchBrowser, createContext } = await import('@a11y-fixer/scanner');
-        const browser = await launchBrowser();
+        const browser = await launchBrowser({
+          cdpEndpoint: flags['cdp-endpoint'],
+          browserChannel: flags['browser-channel'] as 'chrome' | 'msedge' | undefined,
+        });
         const ctxOpts = flags['storage-state']
           ? { storageState: flags['storage-state'] }
           : undefined;
@@ -116,7 +128,10 @@ export default class Scan extends BaseCommand {
       spinner.start();
       try {
         const { scanAtCompat, launchBrowser, createContext } = await import('@a11y-fixer/scanner');
-        const browser = await launchBrowser();
+        const browser = await launchBrowser({
+          cdpEndpoint: flags['cdp-endpoint'],
+          browserChannel: flags['browser-channel'] as 'chrome' | 'msedge' | undefined,
+        });
         const ctxOpts = flags['storage-state']
           ? { storageState: flags['storage-state'] }
           : undefined;

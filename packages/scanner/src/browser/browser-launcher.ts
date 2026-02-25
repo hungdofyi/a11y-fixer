@@ -6,13 +6,28 @@ export interface ViewportSize {
   height: number;
 }
 
+/** Options for launching or connecting to a browser */
+export interface LaunchOptions {
+  headless?: boolean;
+  /** CDP endpoint to connect to existing browser instance */
+  cdpEndpoint?: string;
+  /** Use installed browser channel instead of bundled Chromium */
+  browserChannel?: 'chrome' | 'msedge';
+}
+
 /**
- * Launch a headless Chromium browser instance.
+ * Launch a headless Chromium browser instance, or connect to an existing one via CDP.
+ * When cdpEndpoint is provided, connects to an already-running Chrome instance
+ * (user must start Chrome with --remote-debugging-port=9222).
  * Caller is responsible for calling closeBrowser() when done.
  */
-export async function launchBrowser(options?: { headless?: boolean }): Promise<Browser> {
+export async function launchBrowser(options?: LaunchOptions): Promise<Browser> {
+  if (options?.cdpEndpoint) {
+    return chromium.connectOverCDP(options.cdpEndpoint);
+  }
   const browser = await chromium.launch({
     headless: options?.headless ?? true,
+    ...(options?.browserChannel ? { channel: options.browserChannel } : {}),
   });
   return browser;
 }
