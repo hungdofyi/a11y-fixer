@@ -1,13 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { eq } from 'drizzle-orm';
-import { projects, vpatEntries } from '@a11y-fixer/core';
+import { eq, desc } from 'drizzle-orm';
+import { projects, scans, vpatEntries } from '@a11y-fixer/core';
 import type { VpatEntry, VpatConfig } from '@a11y-fixer/core';
 import { buildVpat } from '@a11y-fixer/report-generator';
 import { ConformanceStatus } from '@a11y-fixer/core';
+import { resyncConformance } from '../utils/resync-conformance.js';
 
 /** Routes for generating VPAT documents */
 const vpatRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST /generate - generate VPAT for a project
+  // POST /generate - resync conformance from issues then generate VPAT
   fastify.post<{
     Body: { projectId: number; format: 'docx' | 'html' };
   }>(
@@ -33,6 +34,24 @@ const vpatRoutes: FastifyPluginAsync = async (fastify) => {
         .where(eq(projects.id, projectId));
       if (!project) {
         return reply.code(404).send({ error: 'Project not found' });
+      }
+
+      // Find latest scan and resync conformance from issues before generating
+      const [latestScan] = await fastify.db
+        .select()
+        .from(scans)
+        .where(eq(scans.projectId, projectId))
+        .orderBy(desc(scans.id))
+        .limit(1);
+
+      if (latestScan) {
+        await resyncConformance(
+          fastify.db,
+          projectId,
+          latestScan.id,
+          latestScan.totalPages ?? 1,
+          latestScan.scanType ?? 'browser',
+        );
       }
 
       const entryRows = await fastify.db

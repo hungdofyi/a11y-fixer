@@ -31,7 +31,7 @@ function computeScore(violations: Violation[], totalPages: number): number {
   if (totalPages === 0) return 0;
   const weightedSum = violations.reduce((sum, v) => {
     const weight = SEVERITY_WEIGHT[v.severity] ?? 1;
-    return sum + weight * v.nodes.length;
+    return sum + weight * Math.max(v.nodes.length, 1);
   }, 0);
   return weightedSum / totalPages;
 }

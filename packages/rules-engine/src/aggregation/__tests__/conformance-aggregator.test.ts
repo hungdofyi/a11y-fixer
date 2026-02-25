@@ -90,6 +90,23 @@ describe('aggregateConformance', () => {
     expect(scores).toHaveLength(0); // No violations = no criterion entries
   });
 
+  it('counts page-level violations with zero nodes as at least 1 occurrence', () => {
+    const zeroNodeViolation: Violation = {
+      ruleId: 'heading-missing-h1',
+      wcagCriteria: ['1.3.1'],
+      severity: Severity.Moderate,
+      description: 'Page has no h1',
+      nodes: [],
+      pageUrl: 'https://example.com',
+    };
+    const result = makeScanResult([zeroNodeViolation]);
+    const scores = aggregateConformance([result]);
+    const score = scores.find((s) => s.wcagId === '1.3.1');
+    expect(score).toBeDefined();
+    expect(score!.status).not.toBe('Supports');
+    expect(score!.score).toBeGreaterThan(0);
+  });
+
   it('merges violations from multiple scan results', () => {
     const axeResult = makeScanResult([makeViolation('color-contrast', ['1.4.3'])]);
     const keyboardResult = makeScanResult([makeViolation('keyboard-trap', ['2.1.2'])]);

@@ -19,7 +19,7 @@ function buildRemarks(score: CriterionScore): string {
   } else {
     const severityCounts: Record<string, number> = {};
     for (const v of score.violations) {
-      severityCounts[v.severity] = (severityCounts[v.severity] ?? 0) + v.nodes.length;
+      severityCounts[v.severity] = (severityCounts[v.severity] ?? 0) + Math.max(v.nodes.length, 1);
     }
     const breakdown = Object.entries(severityCounts)
       .map(([sev, count]) => `${count} ${sev}`)

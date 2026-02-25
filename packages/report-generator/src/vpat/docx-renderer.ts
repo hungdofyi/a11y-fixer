@@ -9,10 +9,31 @@ import {
   HeadingLevel,
   AlignmentType,
   Packer,
+  TableLayoutType,
+  BorderStyle,
 } from 'docx';
 import type { VpatEntry, ConformanceStatus } from '@a11y-fixer/core';
 import type { VpatPreamble, VpatSection } from './vpat-template-data.js';
 import { VPAT_TEMPLATE_HEADER } from './vpat-template-data.js';
+
+// Total page width in twips (~6.5" usable at letter size)
+const PAGE_WIDTH_TWIPS = 9360;
+// Column widths: Criteria 40%, Conformance 25%, Remarks 35%
+const COL_WIDTHS = [
+  Math.round(PAGE_WIDTH_TWIPS * 0.40),
+  Math.round(PAGE_WIDTH_TWIPS * 0.25),
+  Math.round(PAGE_WIDTH_TWIPS * 0.35),
+];
+
+const BORDER = { style: BorderStyle.SINGLE, size: 1, color: '999999' };
+const TABLE_BORDERS = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER, insideH: BORDER, insideV: BORDER };
+
+function makeCell(text: string, colIndex: number, bold = false): TableCell {
+  return new TableCell({
+    children: [new Paragraph({ children: [new TextRun({ text, bold, size: 20 })] })],
+    width: { size: COL_WIDTHS[colIndex]!, type: WidthType.DXA },
+  });
+}
 
 /** Render VPAT as .docx Buffer */
 export async function renderVpatDocx(
@@ -48,7 +69,6 @@ export async function renderVpatDocx(
   // Sections with tables, grouped by standard
   let lastGroup = '';
   for (const section of sections) {
-    // Emit group header when group changes
     if (section.group !== lastGroup) {
       lastGroup = section.group;
       children.push(new Paragraph({ text: section.group, heading: HeadingLevel.HEADING_2 }));
@@ -56,12 +76,12 @@ export async function renderVpatDocx(
     children.push(new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_3 }));
 
     const headerRow = new TableRow({
-      children: ['Criteria', 'Conformance Level', 'Remarks and Explanations'].map(
-        (text) => new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text, bold: true })] })],
-          width: { size: 33, type: WidthType.PERCENTAGE },
-        }),
-      ),
+      tableHeader: true,
+      children: [
+        makeCell('Criteria', 0, true),
+        makeCell('Conformance Level', 1, true),
+        makeCell('Remarks and Explanations', 2, true),
+      ],
     });
 
     const dataRows = section.criteria.map((criterion) => {
@@ -71,16 +91,19 @@ export async function renderVpatDocx(
 
       return new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: `${criterion.id} ${criterion.title}` })] }),
-          new TableCell({ children: [new Paragraph({ text: status })] }),
-          new TableCell({ children: [new Paragraph({ text: remarks })] }),
+          makeCell(`${criterion.id} ${criterion.title}`, 0),
+          makeCell(status, 1),
+          makeCell(remarks, 2),
         ],
       });
     });
 
     children.push(new Table({
       rows: [headerRow, ...dataRows],
-      width: { size: 100, type: WidthType.PERCENTAGE },
+      width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
+      layout: TableLayoutType.FIXED,
+      columnWidths: COL_WIDTHS,
+      borders: TABLE_BORDERS,
     }));
 
     children.push(new Paragraph({ text: '' }));
