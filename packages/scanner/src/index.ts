@@ -173,7 +173,19 @@ export async function* scanSite(
               totalScreenshots += screenshotResults.length;
             }
 
-            return { ...normalized, screenshotResults };
+            // Optionally run keyboard & focus testing on same page
+            let keyboardResult: ScanResult | undefined;
+            if (mergedConfig.enableKeyboard) {
+              keyboardResult = await scanKeyboard(page, {});
+            }
+
+            // Optionally run AT device compatibility checks
+            let atCompatResult: ScanResult | undefined;
+            if (mergedConfig.enableAtCompat) {
+              atCompatResult = await scanAtCompat(page, {});
+            }
+
+            return { ...normalized, screenshotResults, keyboardResult, atCompatResult };
           } finally {
             await page.close();
           }
@@ -182,11 +194,14 @@ export async function* scanSite(
 
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
+          const { keyboardResult, atCompatResult, ...pageData } = result.value;
           yield {
             scanType: 'browser',
             timestamp: new Date().toISOString(),
             scannedCount: 1,
-            ...result.value,
+            ...pageData,
+            keyboardResult,
+            atCompatResult,
           };
         }
         // Silently skip failed pages to allow partial results
