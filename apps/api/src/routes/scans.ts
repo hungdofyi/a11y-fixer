@@ -191,10 +191,21 @@ async function runScanBackground(
       const pageResults: import('@a11y-fixer/core').ScanResult[] = [];
       for await (const pageResult of scanSite(url, {
         maxPages: opts.maxPages ?? 10,
+        enableKeyboard: opts.enableKeyboard,
+        enableAtCompat: opts.enableAtCompat,
         ...(opts.enableScreenshots ? { captureScreenshots: true, scanId, dataDir } : {}),
         ...(storageStatePath ? { storageState: storageStatePath } : {}),
       })) {
-        pageResults.push(pageResult);
+        // Merge per-page keyboard + AT compat into the page result before pushing
+        const extraPageResults = [pageResult.keyboardResult, pageResult.atCompatResult].filter(
+          (r): r is import('@a11y-fixer/core').ScanResult => r !== undefined,
+        );
+        if (extraPageResults.length > 0) {
+          const mergedPage = mergeScanResults([pageResult, ...extraPageResults]);
+          pageResults.push(mergedPage);
+        } else {
+          pageResults.push(pageResult);
+        }
         // Collect screenshots from each page result
         if (pageResult.screenshotResults) {
           screenshotResults.push(...pageResult.screenshotResults);
