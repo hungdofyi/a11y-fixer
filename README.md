@@ -80,7 +80,7 @@ See the [Walkthrough Guide](./docs/walkthrough.md) for all commands and options.
 
 | Standard | Region | Coverage |
 |----------|--------|----------|
-| WCAG 2.1/2.2 Level AA | International | 55 criteria |
+| WCAG 2.1/2.2 Level AA | International | 56 criteria |
 | ADA Section 508 | United States | Via WCAG mapping |
 | EN 301 549 | European Union | Via WCAG mapping |
 
@@ -93,7 +93,7 @@ TypeScript monorepo using pnpm workspaces and Turborepo.
 | Package | Purpose |
 |---------|---------|
 | `packages/core` | Shared types, WCAG criteria map, database schema |
-| `packages/scanner` | Browser, static, keyboard, and AT device compatibility scanning |
+| `packages/scanner` | Browser, static, keyboard, and AT device compatibility scanning with violation screenshots |
 | `packages/rules-engine` | Rule registry, severity classification, fix templates |
 | `packages/ai-engine` | Claude AI integration for fix suggestions |
 | `packages/report-generator` | VPAT, HTML, CSV, PDF report generation |

@@ -49,11 +49,15 @@ Open **http://localhost:5173** in your browser.
 
 1. **Create a project** — Click "Create Project" on the home page. Give it a name (e.g. "Our Marketing Site") and the URL you want to scan.
 
-2. **Start a scan** — Go into your project and click "New Scan". The URL pre-fills from your project. Choose a scan type:
+2. **Start a scan** — Go into your project and click "New Scan". The URL pre-fills from your project. Choose a scan type and options:
    - **Browser** — opens the page and checks for visual/structural issues (most common)
-   - **Keyboard** — tests if the page is usable with keyboard only (tab order, focus traps, skip links)
-   - **AT Compat** — checks assistive technology compatibility (screen readers, switch devices, magnification)
-   - **All** — runs browser + keyboard (add `--at-compat` flag for AT checks too)
+   - **Site** — crawls multiple pages from the URL
+   - **Static** — analyzes source files without a browser
+
+   Additional options (checkboxes below scan type):
+   - **Enable Keyboard** — adds keyboard navigation checks (tab order, focus traps, skip links, focus visibility)
+   - **Enable AT Compatibility** — adds assistive technology checks (screen readers, switch devices, magnification)
+   - **Capture Screenshots** — takes annotated screenshots of each violation with a red highlight and label badge showing which element failed
 
 3. **Watch progress** — A live progress bar shows what's happening. Scans usually take 10-60 seconds depending on how many pages are being checked.
 
@@ -68,6 +72,7 @@ Open **http://localhost:5173** in your browser.
    - Which HTML element failed
    - Which WCAG criterion it relates to
    - A suggested fix
+   - A screenshot of the violation (if screenshots were enabled) — the failing element is highlighted with a red outline and labeled
 
 ### Downloading Reports
 
@@ -77,7 +82,7 @@ From the scan results page, you can download:
 
 ### Generating a VPAT (Compliance Document)
 
-Go to the **VPAT** section in the navigation. Pick your project, choose a format (Word or HTML), and click Generate. This creates a formal VPAT 2.5 compliance document covering WCAG 2.1/2.2, Section 508, and EN 301 549.
+Go to the **VPAT** section in the navigation. Pick your project, choose a format (Word or HTML), and click Generate. Each generation recomputes conformance scores from the latest scan data, so the VPAT always reflects current results. This creates a formal VPAT 2.5 compliance document covering WCAG 2.1/2.2, Section 508, and EN 301 549.
 
 ---
 
@@ -117,6 +122,9 @@ pnpm a11y scan https://example.com --type at-compat
 
 # Full scan with AT compat included
 pnpm a11y scan https://example.com --at-compat
+
+# Capture screenshots of violations (highlighted with red outline)
+pnpm a11y scan https://example.com --screenshots
 
 # Static analysis of Vue components (no browser needed)
 pnpm a11y scan ./src/components --type static
@@ -182,6 +190,7 @@ pnpm a11y project show 1
 | `--wcag-level aaa` | Use stricter AAA level (default: AA) |
 | `--pages 50` | Crawl up to 50 pages (default: 10) |
 | `--at-compat` | Include AT device compatibility checks |
+| `--screenshots` | Capture annotated screenshots of each violation |
 | `--type at-compat` | Run only AT compat checks |
 
 ---
@@ -318,7 +327,7 @@ The last 4 are heuristic — they flag potential issues for manual review rather
 
 | Standard | Region | What it's for |
 |----------|--------|---------------|
-| WCAG 2.1/2.2 Level AA | International | The main accessibility standard. 55 criteria checked. |
+| WCAG 2.1/2.2 Level AA | International | The main accessibility standard. 56 criteria checked. |
 | Section 508 | United States | Required for US government and many enterprise contracts |
 | EN 301 549 | European Union | Required for EU public sector and procurement |
 
