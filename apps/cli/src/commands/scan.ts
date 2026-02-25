@@ -63,9 +63,14 @@ export default class Scan extends BaseCommand {
           maxPages: flags.pages,
           storageState: flags['storage-state'],
           captureScreenshots: flags.screenshots,
+          enableKeyboard: scanType === 'all' ? true : undefined,
           enableAtCompat: flags['at-compat'],
         });
         results.push(result);
+        // Push keyboard/AT sub-results for separate display
+        const scanResult = result as import('@a11y-fixer/scanner').ScanUrlResult;
+        if (scanResult.keyboardResult) results.push(scanResult.keyboardResult);
+        if (scanResult.atCompatResult) results.push(scanResult.atCompatResult);
         spinner.succeed(`Browser scan: ${result.violations.length} violations`);
       } catch (err) {
         spinner.fail(`Browser scan failed: ${(err as Error).message}`);
@@ -85,7 +90,7 @@ export default class Scan extends BaseCommand {
       }
     }
 
-    if (isUrl && (scanType === 'keyboard' || scanType === 'all')) {
+    if (isUrl && scanType === 'keyboard') {
       const spinner = createSpinner('Running keyboard tests...');
       spinner.start();
       try {
@@ -106,7 +111,7 @@ export default class Scan extends BaseCommand {
       }
     }
 
-    if (isUrl && (scanType === 'at-compat' || (scanType === 'all' && flags['at-compat']))) {
+    if (isUrl && scanType === 'at-compat') {
       const spinner = createSpinner('Running AT device compatibility checks...');
       spinner.start();
       try {
