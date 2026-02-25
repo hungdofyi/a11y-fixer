@@ -7,6 +7,7 @@ import {
   discoverUrls,
   normalizeAxeResults,
   captureViolationScreenshots,
+  captureFocusScreenshots,
 } from './browser/index.js';
 import type { BrowserScanConfig } from './browser/index.js';
 import type { ScreenshotResult } from './browser/index.js';
@@ -96,6 +97,26 @@ export async function scanUrl(
     let atCompatResult: ScanResult | undefined;
     if (mergedConfig.enableAtCompat) {
       atCompatResult = await scanAtCompat(page, {});
+    }
+
+    // Capture screenshots for keyboard/AT violations (focus-visible gets focused screenshots)
+    if (mergedConfig.captureScreenshots && scanId && dataDir) {
+      const axeScreenshotCount = screenshotResults?.length ?? 0;
+      const remaining = (mergedConfig.maxScreenshots ?? 50) - axeScreenshotCount;
+      if (remaining > 0) {
+        const extraViolations = [
+          ...(keyboardResult?.violations ?? []),
+          ...(atCompatResult?.violations ?? []),
+        ];
+        if (extraViolations.length > 0) {
+          // Start index after axe issues (count all axe violation nodes)
+          const axeNodeCount = normalized.violations.reduce((sum, v) => sum + Math.max(v.nodes.length, 1), 0);
+          const focusScreenshots = await captureFocusScreenshots(
+            page, extraViolations, scanId, dataDir, remaining, axeNodeCount,
+          );
+          screenshotResults = [...(screenshotResults ?? []), ...focusScreenshots];
+        }
+      }
     }
 
     await context.close();
@@ -190,6 +211,25 @@ export async function* scanSite(
             let atCompatResult: ScanResult | undefined;
             if (mergedConfig.enableAtCompat) {
               atCompatResult = await scanAtCompat(page, {});
+            }
+
+            // Capture screenshots for keyboard/AT violations
+            if (mergedConfig.captureScreenshots && scanId && dataDir) {
+              const axeCount = screenshotResults?.length ?? 0;
+              const remaining = (maxScreenshots - totalScreenshots) - axeCount;
+              if (remaining > 0) {
+                const extraViolations = [
+                  ...(keyboardResult?.violations ?? []),
+                  ...(atCompatResult?.violations ?? []),
+                ];
+                if (extraViolations.length > 0) {
+                  const axeNodeCount = normalized.violations.reduce((sum, v) => sum + Math.max(v.nodes.length, 1), 0);
+                  const focusShots = await captureFocusScreenshots(
+                    page, extraViolations, scanId, dataDir, remaining, axeNodeCount,
+                  );
+                  screenshotResults = [...(screenshotResults ?? []), ...focusShots];
+                }
+              }
             }
 
             return { ...normalized, screenshotResults, keyboardResult, atCompatResult };

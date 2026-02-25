@@ -4,6 +4,7 @@ export type { ViewportSize, ContextOptions, LaunchOptions } from './browser-laun
 export { scanPage } from './axe-scanner.js';
 export { discoverUrls } from './page-crawler.js';
 export { waitForDomStable } from './dom-settler.js';
+export { captureFocusScreenshots } from './focus-screenshot-capture.js';
 export { normalizeAxeResults } from './result-normalizer.js';
 export { captureViolationScreenshots } from './screenshot-capture.js';
 export type { ScreenshotResult } from './screenshot-capture.js';
