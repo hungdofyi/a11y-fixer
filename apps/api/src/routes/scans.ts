@@ -160,6 +160,7 @@ async function runScanBackground(
 ): Promise<void> {
   try {
     let violations: Violation[] = [];
+    let incomplete: import('@a11y-fixer/core').IncompleteResult[] = [];
     let scannedCount = 0;
     let screenshotResults: ScreenshotResult[] = [];
     const dataDir = process.env['A11Y_DATA_DIR'] ?? resolve(process.cwd(), 'data');
@@ -180,9 +181,11 @@ async function runScanBackground(
       if (extraResults.length > 0) {
         const merged = mergeScanResults([result, ...extraResults]);
         violations = merged.violations;
+        incomplete = merged.incomplete;
         scannedCount = merged.scannedCount;
       } else {
         violations = result.violations;
+        incomplete = result.incomplete;
         scannedCount = result.scannedCount;
       }
       screenshotResults = result.screenshotResults ?? [];
@@ -214,6 +217,7 @@ async function runScanBackground(
       if (pageResults.length > 0) {
         const merged = mergeScanResults(pageResults);
         violations = merged.violations;
+        incomplete = merged.incomplete;
         scannedCount = merged.scannedCount;
       }
     } else if (scanType === 'static' && dir) {
@@ -289,7 +293,7 @@ async function runScanBackground(
       timestamp: new Date().toISOString(),
       violations,
       passes: [],
-      incomplete: [],
+      incomplete,
       scannedCount,
     };
     const conformanceScores = aggregateConformance([conformanceInput]);

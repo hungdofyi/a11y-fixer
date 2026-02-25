@@ -51,6 +51,7 @@ export const WCAG_CRITERIA_MAP: WcagCriterion[] = [
   { id: '2.2.2', title: 'Pause, Stop, Hide', level: 'A', principle: 'operable', guidelineId: '2.2', guidelineTitle: 'Enough Time' },
   // 2.3 Seizures and Physical Reactions
   { id: '2.3.1', title: 'Three Flashes or Below Threshold', level: 'A', principle: 'operable', guidelineId: '2.3', guidelineTitle: 'Seizures and Physical Reactions' },
+  { id: '2.3.3', title: 'Animation from Interactions', level: 'AAA', principle: 'operable', guidelineId: '2.3', guidelineTitle: 'Seizures and Physical Reactions' },
   // 2.4 Navigable
   { id: '2.4.1', title: 'Bypass Blocks', level: 'A', principle: 'operable', guidelineId: '2.4', guidelineTitle: 'Navigable' },
   { id: '2.4.2', title: 'Page Titled', level: 'A', principle: 'operable', guidelineId: '2.4', guidelineTitle: 'Navigable' },

@@ -3,6 +3,7 @@ export { RuleRegistry } from './registry/rule-registry.js';
 export type { Rule } from './registry/rule-registry.js';
 export { AXE_RULES } from './registry/axe-rule-mapping.js';
 export { AT_COMPAT_RULES } from './registry/at-compat-rule-mapping.js';
+export { KEYBOARD_RULES } from './registry/keyboard-rule-mapping.js';
 export { classifySeverity } from './registry/severity-classifier.js';
 
 // Fix templates
